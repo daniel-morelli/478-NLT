@@ -1,0 +1,235 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { DbService } from '../services/dbService';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Provider } from '../types';
+import { ArrowLeft, Save, Lock } from 'lucide-react';
+
+export const PracticeForm: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  const [loading, setLoading] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [formData, setFormData] = useState<Partial<Practice>>({
+    data: new Date().toISOString().split('T')[0],
+    statoTrattativa: DealStatus.IN_CORSO,
+    statoAffidamento: '',
+    statoOrdine: '',
+    numeroVeicoli: 1,
+    valoreTotale: 0,
+    provider: '',
+    annotazioniTrattativa: '',
+    annotazioniAffidamento: '',
+    annotazioneOrdine: '',
+  });
+
+  useEffect(() => {
+    // Carica SOLO i provider ATTIVI (true)
+    DbService.getAllProviders(true).then(setProviders);
+
+    if (id && user) {
+      setLoading(true);
+      DbService.getPractices(user).then(practices => {
+        const found = practices.find(p => p.id === id);
+        if (found) setFormData(found);
+        setLoading(false);
+      });
+    }
+  }, [id, user]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name.includes('numero') || name.includes('valore') ? Number(value) : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      await DbService.savePractice({
+        ...formData,
+        agentId: formData.agentId || user.id
+      });
+      navigate('/practices');
+    } catch (error) {
+      console.error("Error saving:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const SectionTitle = ({ title }: { title: string }) => (
+    <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide border-b-2 border-red-600 pb-2 mb-6 mt-10 w-fit">{title}</h3>
+  );
+
+  const isAffidamentoEnabled = formData.statoTrattativa === DealStatus.IN_CORSO;
+  const isOrdineEnabled = formData.statoAffidamento === CreditStatus.ESITATO || 
+                          formData.statoAffidamento === CreditStatus.ESITATO_CON_CONDIZIONI;
+
+  const InputStyle = "w-full border border-gray-300 bg-white text-gray-900 rounded-none p-3 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400";
+  const LabelStyle = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2";
+
+  return (
+    <div className="max-w-4xl mx-auto pb-20">
+        <button 
+            onClick={() => navigate('/practices')}
+            className="flex items-center text-gray-500 hover:text-red-600 mb-8 transition-colors font-medium text-sm uppercase tracking-wide"
+        >
+            <ArrowLeft className="w-4 h-4 mr-2" /> Torna all'elenco
+        </button>
+
+        <div className="bg-white shadow-sm border border-gray-200">
+            <div className="bg-black text-white p-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold tracking-tight">
+                    {id ? 'MODIFICA PRATICA' : 'NUOVA PRATICA'}
+                </h2>
+                <div className="text-xs font-mono text-gray-400">
+                    AGENTE: {user?.nome.toUpperCase()}
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8">
+                {/* Dati Generali */}
+                <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide border-b-2 border-red-600 pb-2 mb-6 w-fit">Dati Generali</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <label className={LabelStyle}>Data Pratica</label>
+                        <input type="date" name="data" required value={formData.data} onChange={handleChange} className={InputStyle} />
+                    </div>
+                    <div>
+                        <label className={LabelStyle}>Cliente / Ragione Sociale</label>
+                        <input type="text" name="cliente" required value={formData.cliente || ''} onChange={handleChange} className={InputStyle} placeholder="Inserisci nome cliente" />
+                    </div>
+                    <div>
+                        <label className={LabelStyle}>Provider</label>
+                        <select 
+                            name="provider" 
+                            required 
+                            value={formData.provider || ''} 
+                            onChange={handleChange} 
+                            className={InputStyle}
+                        >
+                            <option value="">-- SELEZIONA PROVIDER --</option>
+                            {providers.map(p => (
+                                <option key={p.id} value={p.name}>{p.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className={LabelStyle}>N. Veicoli</label>
+                            <input type="number" name="numeroVeicoli" value={formData.numeroVeicoli} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>Valore Totale (€)</label>
+                            <input type="number" name="valoreTotale" value={formData.valoreTotale} onChange={handleChange} className={InputStyle} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Trattativa */}
+                <SectionTitle title="Stato Trattativa" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <label className={LabelStyle}>Stato Corrente</label>
+                        <select name="statoTrattativa" value={formData.statoTrattativa} onChange={handleChange} className={`${InputStyle} font-bold text-red-700 bg-red-50`}>
+                            {Object.values(DealStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className={LabelStyle}>Note & Annotazioni</label>
+                        <textarea name="annotazioniTrattativa" rows={3} value={formData.annotazioniTrattativa || ''} onChange={handleChange} className={InputStyle} placeholder="Dettagli sulla trattativa..." />
+                    </div>
+                </div>
+
+                {/* Affidamento */}
+                <div className={`transition-all duration-300 ${!isAffidamentoEnabled ? 'opacity-40 grayscale' : ''}`}>
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-6 mt-10">
+                        <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Affidamento</h3>
+                        {!isAffidamentoEnabled && <div className="flex items-center gap-1 text-xs font-bold text-red-600 border border-red-200 px-2 py-1"><Lock size={12}/> BLOCCATO</div>}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                         {!isAffidamentoEnabled && <div className="absolute inset-0 z-10 cursor-not-allowed"></div>}
+                         
+                        <div>
+                            <label className={LabelStyle}>Data Affidamento</label>
+                            <input disabled={!isAffidamentoEnabled} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>Esito Affidamento</label>
+                            <select disabled={!isAffidamentoEnabled} name="statoAffidamento" value={formData.statoAffidamento} onChange={handleChange} className={InputStyle}>
+                                <option value="">-- IN ATTESA / NON DEFINITO --</option>
+                                {Object.values(CreditStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                         <div className="md:col-span-2">
+                            <label className={LabelStyle}>Note Affidamento</label>
+                            <textarea disabled={!isAffidamentoEnabled} name="annotazioniAffidamento" rows={2} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Ordine */}
+                <div className={`transition-all duration-300 ${!isOrdineEnabled ? 'opacity-40 grayscale' : ''}`}>
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2 mb-6 mt-10">
+                        <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Ordine</h3>
+                         {!isOrdineEnabled && <div className="flex items-center gap-1 text-xs font-bold text-red-600 border border-red-200 px-2 py-1"><Lock size={12}/> BLOCCATO</div>}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                        {!isOrdineEnabled && <div className="absolute inset-0 z-10 cursor-not-allowed"></div>}
+
+                        <div>
+                            <label className={LabelStyle}>Data Ordine</label>
+                            <input disabled={!isOrdineEnabled} type="date" name="dataOrdine" value={formData.dataOrdine || ''} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                             <label className={LabelStyle}>Stato Ordine</label>
+                             <select disabled={!isOrdineEnabled} name="statoOrdine" value={formData.statoOrdine} onChange={handleChange} className={InputStyle}>
+                                <option value="">-- SELEZIONA STATO --</option>
+                                {Object.values(OrderStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>Veicoli Ordinati</label>
+                            <input disabled={!isOrdineEnabled} type="number" name="numeroVeicoliOrdinati" value={formData.numeroVeicoliOrdinati || 0} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>Provvigione (€)</label>
+                            <input disabled={!isOrdineEnabled} type="number" name="valoreProvvigioneTotale" value={formData.valoreProvvigioneTotale || 0} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={LabelStyle}>Note Ordine</label>
+                            <textarea disabled={!isOrdineEnabled} name="annotazioneOrdine" rows={2} value={formData.annotazioneOrdine || ''} onChange={handleChange} className={InputStyle} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-12 pt-6 border-t border-gray-200 flex justify-end gap-4 sticky bottom-0 bg-white py-4 z-20">
+                    <button 
+                        type="button"
+                        onClick={() => navigate('/practices')}
+                        className="px-8 py-3 border border-gray-300 text-gray-700 font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors"
+                    >
+                        Annulla
+                    </button>
+                    <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="px-8 py-3 bg-red-600 text-white font-bold uppercase tracking-wider hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center gap-2 transition-transform transform active:scale-95"
+                    >
+                        <Save size={18} />
+                        {loading ? 'Salvataggio...' : 'Salva Pratica'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+  );
+};

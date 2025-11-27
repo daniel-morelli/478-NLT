@@ -1,0 +1,5 @@
+{
+  "name": "478 NLT Manager",
+  "description": "Web app per la gestione delle pratiche di Noleggio a Lungo Termine per la rete agenti con accesso tramite PIN.",
+  "requestFramePermissions": []
+}
