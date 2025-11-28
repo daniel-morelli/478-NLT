@@ -1,8 +1,7 @@
-import { Agent, Practice, Provider } from '../types';
+import { Agent, Practice, Provider, Reminder } from '../types';
 import { supabase } from './firebaseConfig';
 
 // --- MAPPERS ---
-// Converte da DB (snake_case) a App (camelCase)
 const fromDbAgent = (dbAgent: any): Agent => ({
   id: dbAgent.id,
   pin: dbAgent.pin,
@@ -14,7 +13,6 @@ const fromDbAgent = (dbAgent: any): Agent => ({
   isActive: dbAgent.is_active
 });
 
-// Converte da App a DB
 const toDbAgent = (agent: Partial<Agent>) => ({
   pin: agent.pin,
   nome: agent.nome,
@@ -28,7 +26,7 @@ const toDbAgent = (agent: Partial<Agent>) => ({
 const fromDbPractice = (p: any): Practice => ({
   id: p.id,
   agentId: p.agent_id,
-  agentName: p.agentName, // Campo aggiunto manualmente nel join
+  agentName: p.agentName,
   data: p.data,
   cliente: p.cliente,
   provider: p.provider,
@@ -37,12 +35,12 @@ const fromDbPractice = (p: any): Practice => ({
   statoTrattativa: p.stato_trattativa,
   annotazioniTrattativa: p.annotazioni_trattativa ?? '',
   dataAffidamento: p.data_affidamento,
-  statoAffidamento: p.stato_affidamento ?? '', // Default a stringa vuota se null
+  statoAffidamento: p.stato_affidamento ?? '',
   annotazioniAffidamento: p.annotazioni_affidamento ?? '',
   dataOrdine: p.data_ordine,
   numeroVeicoliOrdinati: p.numero_veicoli_ordinati ?? 0,
   valoreProvvigioneTotale: p.valore_provvigione_totale ?? 0,
-  statoOrdine: p.stato_ordine ?? '', // Default a stringa vuota se null
+  statoOrdine: p.stato_ordine ?? '',
   annotazioneOrdine: p.annotazione_ordine ?? ''
 });
 
@@ -57,15 +55,14 @@ const toDbPractice = (p: Partial<Practice>) => {
     stato_trattativa: p.statoTrattativa,
     annotazioni_trattativa: p.annotazioniTrattativa,
     data_affidamento: p.dataAffidamento,
-    stato_affidamento: p.statoAffidamento || null, // Salva null se stringa vuota
+    stato_affidamento: p.statoAffidamento || null,
     annotazioni_affidamento: p.annotazioniAffidamento,
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
-    stato_ordine: p.statoOrdine || null, // Salva null se stringa vuota
+    stato_ordine: p.statoOrdine || null,
     annotazione_ordine: p.annotazioneOrdine
   };
-  // Rimuove chiavi undefined (ma mantiene null)
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
   return data;
 };
@@ -73,7 +70,17 @@ const toDbPractice = (p: Partial<Practice>) => {
 const fromDbProvider = (p: any): Provider => ({
     id: p.id,
     name: p.name,
-    isActive: p.is_active ?? true // Default true se manca colonna
+    isActive: p.is_active ?? true
+});
+
+const fromDbReminder = (r: any): Reminder => ({
+    id: r.id,
+    practiceId: r.practice_id,
+    createdAt: r.created_at,
+    expirationDate: r.expiration_date,
+    description: r.description,
+    status: r.status,
+    feedback: r.feedback
 });
 
 export const DbService = {
@@ -114,7 +121,6 @@ export const DbService = {
   getAgentByPin: async (pin: string): Promise<Agent | null> => {
     if (!supabase) return null;
     
-    // Cerchiamo il PIN maiuscolo per compatibilità
     const { data, error } = await supabase
       .from('agents')
       .select('*')
@@ -127,7 +133,6 @@ export const DbService = {
       return null;
     }
     
-    // Auto-fix: se l'utente '0000' non esiste, lo creiamo al volo (per primo accesso)
     if (!data && pin === '0000') {
         const adminData = {
             pin: '0000',
@@ -169,13 +174,8 @@ export const DbService = {
   getPractices: async (user: Agent): Promise<Practice[]> => {
     if (!supabase) return [];
     
-    // 1. Scarica le pratiche
     let query = supabase.from('practices').select('*');
     
-    // LOGICA FILTRO:
-    // - Se Admin: Vede tutto
-    // - Se NON è agente (es. Supervisore): Vede tutto
-    // - Se è Agente E non Admin: Vede solo le sue
     const canSeeAll = user.isAdmin || !user.isAgent;
 
     if (!canSeeAll) {
@@ -192,15 +192,11 @@ export const DbService = {
 
     let resultPractices = practicesData;
 
-    // 2. Se l'utente può vedere tutto, facciamo il "join" manuale con gli agenti per avere i nomi
     if (canSeeAll && resultPractices.length > 0) {
         const { data: agentsData } = await supabase.from('agents').select('id, nome');
         
         if (agentsData) {
-            // Crea una mappa id -> nome per velocità
             const agentsMap = new Map(agentsData.map(a => [a.id, a.nome]));
-            
-            // Arricchisci le pratiche col nome
             resultPractices = resultPractices.map(p => ({
                 ...p,
                 agentName: agentsMap.get(p.agent_id) || '-'
@@ -208,7 +204,6 @@ export const DbService = {
         }
     }
 
-    // Safe mapping per evitare errori su campi nulli
     return resultPractices.map(fromDbPractice);
   },
 
@@ -223,6 +218,67 @@ export const DbService = {
       const { error } = await supabase.from('practices').insert([dbData]);
       if (error) throw error;
     }
+  },
+
+  // --- REMINDERS ---
+  getReminders: async (practiceId: string): Promise<Reminder[]> => {
+      if (!supabase) return [];
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .eq('practice_id', practiceId)
+        .order('expiration_date', { ascending: true });
+      
+      if (error) {
+          console.error("Errore reminders:", error);
+          return [];
+      }
+      return data.map(fromDbReminder);
+  },
+
+  // Metodo per ottenere i reminders di più pratiche contemporaneamente (per la dashboard)
+  getRemindersForPractices: async (practiceIds: string[]): Promise<Reminder[]> => {
+      if (!supabase || practiceIds.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('reminders')
+        .select('*')
+        .in('practice_id', practiceIds)
+        .neq('status', 'eliminato'); // Non ci interessano quelli eliminati per la dashboard
+      
+      if (error) {
+          console.error("Errore bulk reminders:", error);
+          return [];
+      }
+      return data.map(fromDbReminder);
+  },
+
+  saveReminder: async (reminder: Partial<Reminder>): Promise<void> => {
+      if (!supabase) return;
+      
+      const dbData = {
+          practice_id: reminder.practiceId,
+          expiration_date: reminder.expirationDate,
+          description: reminder.description,
+          status: reminder.status,
+          feedback: reminder.feedback
+      };
+
+      let error;
+      if (reminder.id) {
+          ({ error } = await supabase.from('reminders').update(dbData).eq('id', reminder.id));
+      } else {
+          ({ error } = await supabase.from('reminders').insert([dbData]));
+      }
+
+      if (error) throw error;
+  },
+
+  deleteReminder: async (id: string): Promise<void> => {
+      if (!supabase) return;
+      // Soft delete: invece di cancellare, impostiamo lo stato a 'eliminato'
+      const { error } = await supabase.from('reminders').update({ status: 'eliminato' }).eq('id', id);
+      if (error) throw error;
   },
 
   initializeDefaults: async (): Promise<void> => {

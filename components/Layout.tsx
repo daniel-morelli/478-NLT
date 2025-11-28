@@ -9,7 +9,9 @@ import {
   X,
   Briefcase
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
+
+const { Link, useLocation } = ReactRouterDOM;
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
@@ -55,7 +57,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">478 <span className="text-red-600">NLT</span></h1>
-            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche</p>
+            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.1.0</p>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400">
             <X />

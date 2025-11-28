@@ -67,9 +67,12 @@ export const Login: React.FC = () => {
               {!loading && <ChevronRight size={18} />}
             </button>
             
-            <p className="text-center text-xs text-gray-400 mt-6">
-              Accesso monitorato e riservato.
-            </p>
+            <div className="text-center mt-6 space-y-1">
+              <p className="text-xs text-gray-400">
+                Accesso monitorato e riservato.
+              </p>
+              <p className="text-xs text-gray-300 font-mono">v1.1.0</p>
+            </div>
           </form>
         </div>
       </div>

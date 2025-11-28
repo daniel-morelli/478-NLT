@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Provider } from '../types';
 import { ArrowLeft, Save, Lock } from 'lucide-react';
+import { PracticeReminders } from '../components/PracticeReminders';
+
+const { useNavigate, useParams } = ReactRouterDOM;
 
 export const PracticeForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,7 +29,6 @@ export const PracticeForm: React.FC = () => {
   });
 
   useEffect(() => {
-    // Carica SOLO i provider ATTIVI (true)
     DbService.getAllProviders(true).then(setProviders);
 
     if (id && user) {
@@ -210,6 +212,9 @@ export const PracticeForm: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* SEZIONE PROMEMORIA (Visibile solo se la pratica è salvata) */}
+                {id && <PracticeReminders practiceId={id} />}
 
                 <div className="mt-12 pt-6 border-t border-gray-200 flex justify-end gap-4 sticky bottom-0 bg-white py-4 z-20">
                     <button 

@@ -36,11 +36,11 @@ export interface Provider {
 
 export interface Practice {
   id: string;
-  agentId: string; // Foreign key to Agent
-  agentName?: string; // Campo calcolato per visualizzazione (non salvato su DB pratica)
-  data: string; // ISO Date string YYYY-MM-DD
+  agentId: string;
+  agentName?: string;
+  data: string;
   cliente: string;
-  provider: string; // Salviamo il nome del provider
+  provider: string;
   numeroVeicoli: number;
   valoreTotale: number;
   
@@ -50,15 +50,25 @@ export interface Practice {
 
   // Affidamento
   dataAffidamento?: string;
-  statoAffidamento: CreditStatus | ''; // Permette stringa vuota
+  statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
 
   // Ordine
   dataOrdine?: string;
   numeroVeicoliOrdinati?: number;
   valoreProvvigioneTotale?: number;
-  statoOrdine: OrderStatus | ''; // Permette stringa vuota
+  statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
+}
+
+export interface Reminder {
+  id: string;
+  practiceId: string;
+  createdAt: string;
+  expirationDate: string; // ISO string for datetime-local
+  description: string;
+  status: 'aperto' | 'chiuso' | 'eliminato';
+  feedback?: string;
 }
 
 export type KPI = {
