@@ -79,17 +79,17 @@ export const PracticeForm: React.FC = () => {
   const LabelStyle = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2";
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
+    <div className="max-w-4xl mx-auto pb-24 md:pb-20">
         <button 
             onClick={() => navigate('/practices')}
-            className="flex items-center text-gray-500 hover:text-red-600 mb-8 transition-colors font-medium text-sm uppercase tracking-wide"
+            className="flex items-center text-gray-500 hover:text-red-600 mb-6 transition-colors font-medium text-sm uppercase tracking-wide"
         >
             <ArrowLeft className="w-4 h-4 mr-2" /> Torna all'elenco
         </button>
 
-        <div className="bg-white shadow-sm border border-gray-200">
-            <div className="bg-black text-white p-6 flex justify-between items-center">
-                <h2 className="text-2xl font-bold tracking-tight">
+        <div className="bg-white shadow-sm border border-gray-200 rounded-lg md:rounded-none overflow-hidden">
+            <div className="bg-black text-white p-4 md:p-6 flex flex-col md:flex-row justify-between md:items-center gap-2">
+                <h2 className="text-xl md:text-2xl font-bold tracking-tight">
                     {id ? 'MODIFICA PRATICA' : 'NUOVA PRATICA'}
                 </h2>
                 <div className="text-xs font-mono text-gray-400">
@@ -97,10 +97,10 @@ export const PracticeForm: React.FC = () => {
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8">
+            <form onSubmit={handleSubmit} className="p-4 md:p-8">
                 {/* Dati Generali */}
                 <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide border-b-2 border-red-600 pb-2 mb-6 w-fit">Dati Generali</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                     <div>
                         <label className={LabelStyle}>Data Pratica</label>
                         <input type="date" name="data" required value={formData.data} onChange={handleChange} className={InputStyle} />
@@ -111,13 +111,7 @@ export const PracticeForm: React.FC = () => {
                     </div>
                     <div>
                         <label className={LabelStyle}>Provider</label>
-                        <select 
-                            name="provider" 
-                            required 
-                            value={formData.provider || ''} 
-                            onChange={handleChange} 
-                            className={InputStyle}
-                        >
+                        <select name="provider" required value={formData.provider || ''} onChange={handleChange} className={InputStyle}>
                             <option value="">-- SELEZIONA PROVIDER --</option>
                             {providers.map(p => (
                                 <option key={p.id} value={p.name}>{p.name}</option>
@@ -138,7 +132,7 @@ export const PracticeForm: React.FC = () => {
 
                 {/* Trattativa */}
                 <SectionTitle title="Stato Trattativa" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
                     <div>
                         <label className={LabelStyle}>Stato Corrente</label>
                         <select name="statoTrattativa" value={formData.statoTrattativa} onChange={handleChange} className={`${InputStyle} font-bold text-red-700 bg-red-50`}>
@@ -157,9 +151,8 @@ export const PracticeForm: React.FC = () => {
                         <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Affidamento</h3>
                         {!isAffidamentoEnabled && <div className="flex items-center gap-1 text-xs font-bold text-red-600 border border-red-200 px-2 py-1"><Lock size={12}/> BLOCCATO</div>}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 relative">
                          {!isAffidamentoEnabled && <div className="absolute inset-0 z-10 cursor-not-allowed"></div>}
-                         
                         <div>
                             <label className={LabelStyle}>Data Affidamento</label>
                             <input disabled={!isAffidamentoEnabled} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} />
@@ -184,9 +177,8 @@ export const PracticeForm: React.FC = () => {
                         <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide">Ordine</h3>
                          {!isOrdineEnabled && <div className="flex items-center gap-1 text-xs font-bold text-red-600 border border-red-200 px-2 py-1"><Lock size={12}/> BLOCCATO</div>}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 relative">
                         {!isOrdineEnabled && <div className="absolute inset-0 z-10 cursor-not-allowed"></div>}
-
                         <div>
                             <label className={LabelStyle}>Data Ordine</label>
                             <input disabled={!isOrdineEnabled} type="date" name="dataOrdine" value={formData.dataOrdine || ''} onChange={handleChange} className={InputStyle} />
@@ -213,21 +205,20 @@ export const PracticeForm: React.FC = () => {
                     </div>
                 </div>
 
-                {/* SEZIONE PROMEMORIA (Visibile solo se la pratica è salvata) */}
                 {id && <PracticeReminders practiceId={id} />}
 
-                <div className="mt-12 pt-6 border-t border-gray-200 flex justify-end gap-4 sticky bottom-0 bg-white py-4 z-20">
+                <div className="mt-12 pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-end gap-3 sticky bottom-0 bg-white/95 backdrop-blur-sm p-4 z-20 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] -mx-4 md:mx-0">
                     <button 
                         type="button"
                         onClick={() => navigate('/practices')}
-                        className="px-8 py-3 border border-gray-300 text-gray-700 font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors"
+                        className="w-full md:w-auto px-8 py-3 border border-gray-300 text-gray-700 font-bold uppercase tracking-wider hover:bg-gray-100 transition-colors"
                     >
                         Annulla
                     </button>
                     <button 
                         type="submit" 
                         disabled={loading}
-                        className="px-8 py-3 bg-red-600 text-white font-bold uppercase tracking-wider hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center gap-2 transition-transform transform active:scale-95"
+                        className="w-full md:w-auto px-8 py-3 bg-red-600 text-white font-bold uppercase tracking-wider hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center justify-center gap-2 transition-transform transform active:scale-95"
                     >
                         <Save size={18} />
                         {loading ? 'Salvataggio...' : 'Salva Pratica'}

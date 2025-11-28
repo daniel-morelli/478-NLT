@@ -15,7 +15,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Bell, Clock, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle } from 'lucide-react';
 
 const { useNavigate } = ReactRouterDOM;
 
@@ -49,25 +49,13 @@ export const Dashboard: React.FC = () => {
 
   if (loading) return <div className="text-center py-10 text-gray-500">Caricamento dati...</div>;
 
-  // --- CALCOLI STATISTICHE ---
   const currentYear = new Date().getFullYear();
   const yearlyPractices = practices.filter(p => new Date(p.data).getFullYear() === currentYear);
-  const totalValue = yearlyPractices.reduce((acc, curr) => acc + (curr.valoreTotale || 0), 0);
-
-  // Stats Promemoria
-  const now = new Date();
   
-  // Promemoria non ancora scaduti (Futuri o Oggi) - Status 'aperto'
-  const futureReminders = reminders.filter(r => 
-    r.status === 'aperto' && new Date(r.expirationDate) >= now
-  );
+  const now = new Date();
+  const futureReminders = reminders.filter(r => r.status === 'aperto' && new Date(r.expirationDate) >= now);
+  const expiredNoFeedbackReminders = reminders.filter(r => r.status === 'aperto' && new Date(r.expirationDate) < now);
 
-  // Promemoria scaduti senza feedback - Status 'aperto' e data passata
-  const expiredNoFeedbackReminders = reminders.filter(r => 
-    r.status === 'aperto' && new Date(r.expirationDate) < now
-  );
-
-  // --- CHART DATA ---
   const monthlyData = Array(12).fill(0).map((_, i) => ({
     name: new Date(0, i).toLocaleString('it-IT', { month: 'short' }).toUpperCase(),
     valore: 0
@@ -76,21 +64,18 @@ export const Dashboard: React.FC = () => {
   yearlyPractices.forEach(p => {
     const date = new Date(p.data);
     const month = date.getMonth();
-    if (!isNaN(month)) {
-        monthlyData[month].valore += (p.valoreTotale || 0);
-    }
+    if (!isNaN(month)) monthlyData[month].valore += (p.valoreTotale || 0);
   });
 
   const statusData = [
-    { name: 'In Corso', value: practices.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, color: '#ef4444' }, // Rosso
-    { name: 'Chiuse', value: practices.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, color: '#171717' },  // Nero
-    { name: 'Fallite', value: practices.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, color: '#d4d4d4' }, // Grigio
+    { name: 'In Corso', value: practices.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, color: '#ef4444' }, 
+    { name: 'Chiuse', value: practices.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, color: '#171717' },  
+    { name: 'Fallite', value: practices.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, color: '#d4d4d4' },
   ].filter(d => d.value > 0);
 
-  // Componente per i Box Cliccabili
   const FilterBox = ({ title, items, type }: { title: string, items: {label: string, value: number, filterVal: string}[], type: string }) => (
-    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
-        <div className="bg-black text-white px-4 py-2 text-sm font-bold uppercase tracking-wider">
+    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full rounded-lg md:rounded-none">
+        <div className="bg-black text-white px-4 py-3 text-sm font-bold uppercase tracking-wider">
             {title}
         </div>
         <div className="p-4 flex-1 flex flex-col justify-center gap-3">
@@ -98,10 +83,10 @@ export const Dashboard: React.FC = () => {
                 <div 
                     key={idx} 
                     onClick={() => handleFilterClick(type, item.filterVal)}
-                    className="flex justify-between items-center cursor-pointer group hover:bg-gray-50 p-1 rounded transition-colors"
+                    className="flex justify-between items-center cursor-pointer group hover:bg-gray-50 p-2 rounded transition-colors"
                 >
                     <span className="text-gray-600 text-sm font-medium group-hover:text-red-600 transition-colors">{item.label}</span>
-                    <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded text-xs group-hover:bg-red-100 group-hover:text-red-700">
+                    <span className="font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded text-xs group-hover:bg-red-100 group-hover:text-red-700">
                         {item.value}
                     </span>
                 </div>
@@ -111,19 +96,18 @@ export const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 pb-10">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6 md:space-y-8 pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-4">
         <div>
-            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h2>
             <p className="text-sm text-gray-500">Panoramica operativa</p>
         </div>
-        <div className="text-sm font-bold text-gray-600 bg-white px-4 py-2 border border-gray-200 shadow-sm">
+        <div className="text-sm font-bold text-gray-600 bg-white px-4 py-2 border border-gray-200 shadow-sm rounded md:rounded-none w-full md:w-auto text-center">
             ANNO {currentYear}
         </div>
       </div>
 
-      {/* BOX PRINCIPALI FILTRABILI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
         <FilterBox 
             title="PRATICHE" 
             type="statoTrattativa"
@@ -154,11 +138,10 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* BOX PROMEMORIA */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div 
             onClick={() => handleFilterClick('reminder', 'future')}
-            className="bg-white border border-gray-200 p-6 flex items-center justify-between cursor-pointer hover:border-red-600 transition-colors shadow-sm group"
+            className="bg-white border border-gray-200 p-5 md:p-6 flex items-center justify-between cursor-pointer hover:border-red-600 transition-colors shadow-sm group rounded-lg md:rounded-none"
           >
               <div>
                   <h4 className="text-gray-500 font-bold uppercase text-xs tracking-wider mb-1 group-hover:text-red-600">Promemoria In Arrivo</h4>
@@ -174,7 +157,7 @@ export const Dashboard: React.FC = () => {
 
           <div 
             onClick={() => handleFilterClick('reminder', 'expired')}
-            className="bg-white border border-gray-200 p-6 flex items-center justify-between cursor-pointer hover:border-red-600 transition-colors shadow-sm group"
+            className="bg-white border border-gray-200 p-5 md:p-6 flex items-center justify-between cursor-pointer hover:border-red-600 transition-colors shadow-sm group rounded-lg md:rounded-none"
           >
               <div>
                   <h4 className="text-gray-500 font-bold uppercase text-xs tracking-wider mb-1 group-hover:text-red-600">Scaduti senza Feedback</h4>
@@ -189,17 +172,15 @@ export const Dashboard: React.FC = () => {
           </div>
       </div>
 
-      {/* GRAFICI */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Chart */}
-        <div className="bg-white p-6 shadow-sm border border-gray-200 lg:col-span-2">
+        <div className="bg-white p-4 md:p-6 shadow-sm border border-gray-200 lg:col-span-2 rounded-lg md:rounded-none">
           <h3 className="text-lg font-bold text-gray-800 mb-6 uppercase tracking-wide">Volume d'Affari Mensile (€)</h3>
-          <div className="h-72 w-full">
+          <div className="h-60 md:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 11, fontWeight: 'bold'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 11}} tickFormatter={(val) => `${val/1000}k`} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 10, fontWeight: 'bold'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 10}} tickFormatter={(val) => `${val/1000}k`} />
                 <Tooltip 
                   cursor={{fill: '#f3f4f6'}}
                   contentStyle={{backgroundColor: '#171717', color: '#fff', borderRadius: '0', border: 'none'}}
@@ -211,8 +192,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Pie Chart */}
-        <div className="bg-white p-6 shadow-sm border border-gray-200">
+        <div className="bg-white p-4 md:p-6 shadow-sm border border-gray-200 rounded-lg md:rounded-none">
           <h3 className="text-lg font-bold text-gray-800 mb-6 uppercase tracking-wide">Stato Trattative</h3>
           <div className="h-64 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -235,15 +215,15 @@ export const Dashboard: React.FC = () => {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-4xl font-bold text-gray-900">{practices.length}</span>
-                <span className="text-xs font-bold text-gray-400 uppercase">Totale</span>
+                <span className="text-3xl md:text-4xl font-bold text-gray-900">{practices.length}</span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Totale</span>
             </div>
           </div>
-          <div className="mt-6 space-y-3">
+          <div className="mt-4 space-y-3">
               {statusData.map((d) => (
                   <div key={d.name} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-3">
-                          <div className="w-3 h-3" style={{backgroundColor: d.color}}></div>
+                          <div className="w-3 h-3 rounded-full md:rounded-none" style={{backgroundColor: d.color}}></div>
                           <span className="text-gray-600 font-medium">{d.name}</span>
                       </div>
                       <span className="font-bold text-gray-800">{d.value}</span>
