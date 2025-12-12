@@ -15,7 +15,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle, ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckCircle } from 'lucide-react';
 
 const { useNavigate } = ReactRouterDOM;
 
@@ -25,6 +25,9 @@ export const Dashboard: React.FC = () => {
   const [practices, setPractices] = useState<Practice[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // State per il calendario
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     if (user) {
@@ -46,6 +49,42 @@ export const Dashboard: React.FC = () => {
   const handleFilterClick = (type: string, value: string) => {
       navigate(`/practices?filterType=${type}&filterValue=${encodeURIComponent(value)}`);
   };
+
+  // --- LOGICA CALENDARIO ---
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => {
+    const day = new Date(year, month, 1).getDay();
+    return day === 0 ? 6 : day - 1; // Lunedì come primo giorno (0=Lun, 6=Dom)
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const isToday = (day: number) => {
+      const today = new Date();
+      return day === today.getDate() && 
+             currentMonth.getMonth() === today.getMonth() && 
+             currentMonth.getFullYear() === today.getFullYear();
+  };
+
+  const getRemindersForDay = (day: number) => {
+      const targetYear = currentMonth.getFullYear();
+      const targetMonth = currentMonth.getMonth();
+      
+      return reminders.filter(r => {
+          if (r.status === 'eliminato') return false;
+          const rDate = new Date(r.expirationDate);
+          return rDate.getDate() === day && 
+                 rDate.getMonth() === targetMonth && 
+                 rDate.getFullYear() === targetYear;
+      }).sort((a, b) => new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime());
+  };
+  // -------------------------
 
   if (loading) return <div className="text-center py-10 text-gray-500">Caricamento dati...</div>;
 
@@ -94,6 +133,14 @@ export const Dashboard: React.FC = () => {
         </div>
     </div>
   );
+
+  // Variabili per rendering calendario
+  const numDays = getDaysInMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+  const firstDay = getFirstDayOfMonth(currentMonth.getFullYear(), currentMonth.getMonth());
+  const daysArray = Array.from({ length: numDays }, (_, i) => i + 1);
+  const blanksArray = Array.from({ length: firstDay }, (_, i) => i);
+  const monthName = currentMonth.toLocaleString('it-IT', { month: 'long', year: 'numeric' }).toUpperCase();
+  const weekDays = ['LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB', 'DOM'];
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20">
@@ -230,6 +277,92 @@ export const Dashboard: React.FC = () => {
                   </div>
               ))}
           </div>
+        </div>
+      </div>
+
+      {/* --- SEZIONE CALENDARIO --- */}
+      <div className="bg-white shadow-sm border border-gray-200 rounded-lg md:rounded-none overflow-hidden">
+        <div className="p-4 bg-black text-white flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <CalendarIcon size={20} className="text-red-600" />
+                <h3 className="font-bold uppercase tracking-wide">Calendario Attività</h3>
+            </div>
+            <div className="flex items-center gap-4">
+                <button onClick={handlePrevMonth} className="hover:text-red-500 transition-colors"><ChevronLeft size={24}/></button>
+                <span className="font-bold text-lg min-w-[150px] text-center select-none">{monthName}</span>
+                <button onClick={handleNextMonth} className="hover:text-red-500 transition-colors"><ChevronRight size={24}/></button>
+            </div>
+        </div>
+
+        <div className="p-4 md:p-6 overflow-x-auto">
+            <div className="min-w-[800px]">
+                {/* Header Giorni */}
+                <div className="grid grid-cols-7 mb-2">
+                    {weekDays.map(d => (
+                        <div key={d} className="text-center text-xs font-bold text-gray-400 uppercase tracking-wider py-2">
+                            {d}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Griglia Calendario */}
+                <div className="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200">
+                    {blanksArray.map(i => (
+                        <div key={`blank-${i}`} className="bg-gray-50 h-32"></div>
+                    ))}
+                    
+                    {daysArray.map(day => {
+                        const dayReminders = getRemindersForDay(day);
+                        const isCurrentDay = isToday(day);
+
+                        return (
+                            <div key={`day-${day}`} className={`bg-white h-32 p-2 relative hover:bg-gray-50 transition-colors flex flex-col gap-1 ${isCurrentDay ? 'ring-2 ring-inset ring-red-600 z-10' : ''}`}>
+                                <span className={`text-sm font-bold block mb-1 ${isCurrentDay ? 'text-red-600' : 'text-gray-700'}`}>
+                                    {day}
+                                </span>
+                                
+                                <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar">
+                                    {dayReminders.map(r => {
+                                        const isClosed = r.status === 'chiuso';
+                                        const isExpired = !isClosed && new Date(r.expirationDate) < now;
+                                        
+                                        // Trova il cliente associato al promemoria per il titolo (opzionale, se serve contesto)
+                                        // const practice = practices.find(p => p.id === r.practiceId);
+
+                                        return (
+                                            <div 
+                                                key={r.id}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(`/practices/${r.practiceId}`);
+                                                }}
+                                                title={`${r.description} - ${new Date(r.expirationDate).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
+                                                className={`text-[10px] p-1 rounded cursor-pointer border truncate transition-all hover:opacity-80 flex items-center gap-1
+                                                    ${isClosed 
+                                                        ? 'bg-green-50 text-green-700 border-green-200' 
+                                                        : isExpired 
+                                                            ? 'bg-red-600 text-white border-red-700 font-bold shadow-sm' 
+                                                            : 'bg-orange-50 text-orange-800 border-orange-200'
+                                                    }`}
+                                            >
+                                                {isClosed && <CheckCircle size={8} />}
+                                                {isExpired && <AlertCircle size={8} />}
+                                                <span className="truncate">{r.description}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            
+            <div className="mt-4 flex gap-4 text-xs text-gray-500 font-medium">
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-600 rounded-sm"></div> Scaduto / Urgente</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-orange-50 border border-orange-200 rounded-sm"></div> In Programma</div>
+                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-50 border border-green-200 rounded-sm"></div> Completato</div>
+            </div>
         </div>
       </div>
     </div>
