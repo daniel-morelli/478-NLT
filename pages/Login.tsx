@@ -10,9 +10,9 @@ export const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = await login(pin);
-    if (!success) {
-      setError('PIN non valido o account disabilitato.');
+    const result = await login(pin);
+    if (!result.success) {
+      setError(result.message || 'PIN non valido.');
     }
   };
 
@@ -48,9 +48,9 @@ export const Login: React.FC = () => {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 p-3 text-sm border-l-4 border-red-600">
-                <AlertCircle size={16} />
-                {error}
+              <div className="flex items-start gap-2 text-red-600 bg-red-50 p-3 text-sm border-l-4 border-red-600">
+                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
@@ -63,13 +63,13 @@ export const Login: React.FC = () => {
                   : 'bg-red-600 hover:bg-red-700 shadow-lg shadow-red-600/30'
               }`}
             >
-              {loading ? 'Verifica...' : 'Accedi al Portale'}
+              {loading ? 'Verifica in corso...' : 'Accedi al Portale'}
               {!loading && <ChevronRight size={18} />}
             </button>
             
             <div className="text-center mt-6 space-y-1">
               <p className="text-xs text-gray-400">
-                Accesso monitorato e riservato.
+                Se è il primo accesso, usa il PIN 0000.
               </p>
               <p className="text-xs text-gray-300 font-mono">v1.1.0</p>
             </div>

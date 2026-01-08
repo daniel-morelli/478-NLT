@@ -84,74 +84,28 @@ const fromDbReminder = (r: any): Reminder => ({
 });
 
 export const DbService = {
-  // --- PROVIDERS ---
-  getAllProviders: async (onlyActive = false): Promise<Provider[]> => {
-    if (!supabase) return [];
-    
-    let query = supabase.from('providers').select('*').order('name');
-    
-    if (onlyActive) {
-        query = query.eq('is_active', true);
-    }
-    
-    const { data, error } = await query;
-    if (error) {
-        console.error("Errore recupero providers:", error);
-        return [];
-    }
-    return data.map(fromDbProvider);
-  },
-
-  saveProvider: async (provider: Partial<Provider>): Promise<void> => {
-    if (!supabase) return;
-    
-    const dbData = {
-        name: provider.name,
-        is_active: provider.isActive
-    };
-
-    if (provider.id) {
-        await supabase.from('providers').update(dbData).eq('id', provider.id);
-    } else {
-        await supabase.from('providers').insert([dbData]);
-    }
-  },
-
   // --- AGENTS ---
   getAgentByPin: async (pin: string): Promise<Agent | null> => {
-    if (!supabase) return null;
+    if (!supabase) throw new Error("Supabase client non inizializzato");
     
     const { data, error } = await supabase
-      .from('agents')
+      .from('nlt_agents')
       .select('*')
       .eq('pin', pin)
       .eq('is_active', true)
       .maybeSingle();
 
     if (error) {
-      console.error("Errore login:", error);
-      return null;
+      console.error("Errore query agenti:", error);
+      throw error;
     }
     
-    if (!data && pin === '0000') {
-        const adminData = {
-            pin: '0000',
-            nome: 'Amministratore',
-            email: 'admin@478nlt.it',
-            is_admin: true,
-            is_agent: true,
-            is_active: true
-        };
-        const { data: newData, error: newError } = await supabase.from('agents').insert([adminData]).select().single();
-        if (newData) return fromDbAgent(newData);
-    }
-
     return data ? fromDbAgent(data) : null;
   },
 
   getAllAgents: async (): Promise<Agent[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('agents').select('*');
+    const { data, error } = await supabase.from('nlt_agents').select('*').order('nome');
     if (error) {
       console.error(error);
       return [];
@@ -164,37 +118,41 @@ export const DbService = {
     const dbData = toDbAgent(agent);
     
     if (agent.id) {
-       await supabase.from('agents').update(dbData).eq('id', agent.id);
+       await supabase.from('nlt_agents').update(dbData).eq('id', agent.id);
     } else {
-       await supabase.from('agents').insert([dbData]);
+       await supabase.from('nlt_agents').insert([dbData]);
     }
+  },
+
+  // --- PROVIDERS ---
+  getAllProviders: async (onlyActive = false): Promise<Provider[]> => {
+    if (!supabase) return [];
+    let query = supabase.from('nlt_providers').select('*').order('name');
+    if (onlyActive) query = query.eq('is_active', true);
+    const { data, error } = await query;
+    if (error) return [];
+    return data.map(fromDbProvider);
+  },
+
+  saveProvider: async (provider: Partial<Provider>): Promise<void> => {
+    if (!supabase) return;
+    const dbData = { name: provider.name, is_active: provider.isActive };
+    if (provider.id) await supabase.from('nlt_providers').update(dbData).eq('id', provider.id);
+    else await supabase.from('nlt_providers').insert([dbData]);
   },
 
   // --- PRACTICES ---
   getPractices: async (user: Agent): Promise<Practice[]> => {
     if (!supabase) return [];
-    
-    let query = supabase.from('practices').select('*');
-    
-    const canSeeAll = user.isAdmin || !user.isAgent;
-
-    if (!canSeeAll) {
-      query = query.eq('agent_id', user.id);
-    }
-
+    let query = supabase.from('nlt_practices').select('*');
+    if (user.isAgent && !user.isAdmin) query = query.eq('agent_id', user.id);
     const { data: practicesData, error } = await query;
-    if (error) {
-      console.error(error);
-      return [];
-    }
-
+    if (error) return [];
     if (!practicesData) return [];
 
     let resultPractices = practicesData;
-
-    if (canSeeAll && resultPractices.length > 0) {
-        const { data: agentsData } = await supabase.from('agents').select('id, nome');
-        
+    if ((user.isAdmin || !user.isAgent) && resultPractices.length > 0) {
+        const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
         if (agentsData) {
             const agentsMap = new Map(agentsData.map(a => [a.id, a.nome]));
             resultPractices = resultPractices.map(p => ({
@@ -203,19 +161,17 @@ export const DbService = {
             }));
         }
     }
-
     return resultPractices.map(fromDbPractice);
   },
 
   savePractice: async (practice: Partial<Practice>): Promise<void> => {
     if (!supabase) return;
     const dbData = toDbPractice(practice);
-    
     if (practice.id) {
-      const { error } = await supabase.from('practices').update(dbData).eq('id', practice.id);
+      const { error } = await supabase.from('nlt_practices').update(dbData).eq('id', practice.id);
       if (error) throw error;
     } else {
-      const { error } = await supabase.from('practices').insert([dbData]);
+      const { error } = await supabase.from('nlt_practices').insert([dbData]);
       if (error) throw error;
     }
   },
@@ -223,65 +179,31 @@ export const DbService = {
   // --- REMINDERS ---
   getReminders: async (practiceId: string): Promise<Reminder[]> => {
       if (!supabase) return [];
-      const { data, error } = await supabase
-        .from('reminders')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .order('expiration_date', { ascending: true });
-      
-      if (error) {
-          console.error("Errore reminders:", error);
-          return [];
-      }
+      const { data, error } = await supabase.from('nlt_reminders').select('*').eq('practice_id', practiceId).order('expiration_date');
+      if (error) return [];
       return data.map(fromDbReminder);
   },
 
-  // Metodo per ottenere i reminders di più pratiche contemporaneamente (per la dashboard)
   getRemindersForPractices: async (practiceIds: string[]): Promise<Reminder[]> => {
       if (!supabase || practiceIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from('reminders')
-        .select('*')
-        .in('practice_id', practiceIds)
-        .neq('status', 'eliminato'); // Non ci interessano quelli eliminati per la dashboard
-      
-      if (error) {
-          console.error("Errore bulk reminders:", error);
-          return [];
-      }
+      const { data, error } = await supabase.from('nlt_reminders').select('*').in('practice_id', practiceIds).neq('status', 'eliminato');
+      if (error) return [];
       return data.map(fromDbReminder);
   },
 
   saveReminder: async (reminder: Partial<Reminder>): Promise<void> => {
       if (!supabase) return;
-      
-      const dbData = {
-          practice_id: reminder.practiceId,
-          expiration_date: reminder.expirationDate,
-          description: reminder.description,
-          status: reminder.status,
-          feedback: reminder.feedback
-      };
-
+      const dbData = { practice_id: reminder.practiceId, expiration_date: reminder.expirationDate, description: reminder.description, status: reminder.status, feedback: reminder.feedback };
       let error;
-      if (reminder.id) {
-          ({ error } = await supabase.from('reminders').update(dbData).eq('id', reminder.id));
-      } else {
-          ({ error } = await supabase.from('reminders').insert([dbData]));
-      }
-
+      if (reminder.id) ({ error } = await supabase.from('nlt_reminders').update(dbData).eq('id', reminder.id));
+      else ({ error } = await supabase.from('nlt_reminders').insert([dbData]));
       if (error) throw error;
   },
 
   deleteReminder: async (id: string): Promise<void> => {
       if (!supabase) return;
-      // Soft delete: invece di cancellare, impostiamo lo stato a 'eliminato'
-      const { error } = await supabase.from('reminders').update({ status: 'eliminato' }).eq('id', id);
-      if (error) throw error;
+      await supabase.from('nlt_reminders').update({ status: 'eliminato' }).eq('id', id);
   },
 
-  initializeDefaults: async (): Promise<void> => {
-    // Placeholder kept for compatibility
-  }
+  initializeDefaults: async (): Promise<void> => {}
 };

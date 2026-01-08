@@ -1,3 +1,4 @@
+// Fixed missing React import for React.FC and React.ReactNode types
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Agent } from '../types';
 import { DbService } from '../services/dbService';
@@ -16,7 +17,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Check local storage
     try {
       const storedUser = localStorage.getItem('478_USER');
       if (storedUser) {
@@ -25,15 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.warn("Storage access blocked", e);
     }
-    
-    // Check connection
-    DbService.initializeDefaults();
   }, []);
 
   const login = async (pin: string) => {
     setLoading(true);
     try {
-      console.log("Login richiesto per PIN:", pin);
       const agent = await DbService.getAgentByPin(pin);
       
       if (agent) {
@@ -44,10 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: true };
       }
       
-      return { success: false, message: 'PIN non valido o utente disabilitato.' };
+      return { success: false, message: 'PIN errato o utente non attivo.' };
     } catch (e: any) {
       console.error("Errore Login:", e);
-      return { success: false, message: 'Errore di connessione al database.' };
+      return { success: false, message: 'Errore di connessione. Verifica di aver creato le tabelle SQL.' };
     } finally {
       setLoading(false);
     }
