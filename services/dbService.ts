@@ -1,3 +1,4 @@
+
 import { Agent, Practice, Provider, Reminder } from '../types';
 import { supabase } from './firebaseConfig';
 
@@ -32,6 +33,14 @@ const fromDbPractice = (p: any): Practice => ({
   provider: p.provider,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
+  
+  // Nuovi campi
+  valoreListinoTrattativa: p.valore_listino_trattativa ?? 0,
+  mesePrevistoChiusura: p.mese_previsto_chiusura ?? '',
+  valoreListinoAffidamento: p.valore_listino_affidamento ?? 0,
+  numeroVeicoliAffidamento: p.numero_veicoli_affidamento ?? 0,
+  valoreListinoOrdinato: p.valore_listino_ordinato ?? 0,
+
   statoTrattativa: p.stato_trattativa,
   annotazioniTrattativa: p.annotazioni_trattativa ?? '',
   dataAffidamento: p.data_affidamento,
@@ -41,7 +50,8 @@ const fromDbPractice = (p: any): Practice => ({
   numeroVeicoliOrdinati: p.numero_veicoli_ordinati ?? 0,
   valoreProvvigioneTotale: p.valore_provvigione_totale ?? 0,
   statoOrdine: p.stato_ordine ?? '',
-  annotazioneOrdine: p.annotazione_ordine ?? ''
+  annotazioneOrdine: p.annotazione_ordine ?? '',
+  deletedAt: p.deleted_at
 });
 
 const toDbPractice = (p: Partial<Practice>) => {
@@ -52,6 +62,14 @@ const toDbPractice = (p: Partial<Practice>) => {
     provider: p.provider,
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
+    
+    // Nuovi campi
+    valore_listino_trattativa: p.valoreListinoTrattativa,
+    mese_previsto_chiusura: p.mesePrevistoChiusura,
+    valore_listino_affidamento: p.valoreListinoAffidamento,
+    numero_veicoli_affidamento: p.numeroVeicoliAffidamento,
+    valore_listino_ordinato: p.valoreListinoOrdinato,
+
     stato_trattativa: p.statoTrattativa,
     annotazioni_trattativa: p.annotazioniTrattativa,
     data_affidamento: p.dataAffidamento,
@@ -61,7 +79,9 @@ const toDbPractice = (p: Partial<Practice>) => {
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     stato_ordine: p.statoOrdine || null,
-    annotazione_ordine: p.annotazioneOrdine
+    // Fix: access correct property name from Practice interface
+    annotazione_ordine: p.annotazioneOrdine,
+    deleted_at: p.deletedAt
   };
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
   return data;
@@ -87,36 +107,26 @@ export const DbService = {
   // --- AGENTS ---
   getAgentByPin: async (pin: string): Promise<Agent | null> => {
     if (!supabase) throw new Error("Supabase client non inizializzato");
-    
     const { data, error } = await supabase
       .from('nlt_agents')
       .select('*')
       .eq('pin', pin)
       .eq('is_active', true)
       .maybeSingle();
-
-    if (error) {
-      console.error("Errore query agenti:", error);
-      throw error;
-    }
-    
+    if (error) throw error;
     return data ? fromDbAgent(data) : null;
   },
 
   getAllAgents: async (): Promise<Agent[]> => {
     if (!supabase) return [];
     const { data, error } = await supabase.from('nlt_agents').select('*').order('nome');
-    if (error) {
-      console.error(error);
-      return [];
-    }
+    if (error) return [];
     return data.map(fromDbAgent);
   },
 
   saveAgent: async (agent: Partial<Agent>): Promise<void> => {
     if (!supabase) return;
     const dbData = toDbAgent(agent);
-    
     if (agent.id) {
        await supabase.from('nlt_agents').update(dbData).eq('id', agent.id);
     } else {
@@ -124,7 +134,6 @@ export const DbService = {
     }
   },
 
-  // --- PROVIDERS ---
   getAllProviders: async (onlyActive = false): Promise<Provider[]> => {
     if (!supabase) return [];
     let query = supabase.from('nlt_providers').select('*').order('name');
@@ -144,13 +153,28 @@ export const DbService = {
   // --- PRACTICES ---
   getPractices: async (user: Agent): Promise<Practice[]> => {
     if (!supabase) return [];
-    let query = supabase.from('nlt_practices').select('*');
-    if (user.isAgent && !user.isAdmin) query = query.eq('agent_id', user.id);
+    
+    // Filtro per escludere le pratiche cancellate (deleted_at IS NULL)
+    let query = supabase.from('nlt_practices').select('*').is('deleted_at', null);
+    
+    if (user.isAgent && !user.isAdmin) {
+      query = query.eq('agent_id', user.id);
+    }
+
     const { data: practicesData, error } = await query;
-    if (error) return [];
+    
+    if (error) {
+      console.error("Errore recupero pratiche:", error);
+      if (error.code === '42703') {
+          const retry = await supabase.from('nlt_practices').select('*');
+          if (retry.data) return retry.data.map(fromDbPractice);
+      }
+      return [];
+    }
+
     if (!practicesData) return [];
 
-    let resultPractices = practicesData;
+    let resultPractices = [...practicesData];
     if ((user.isAdmin || !user.isAgent) && resultPractices.length > 0) {
         const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
         if (agentsData) {
@@ -173,6 +197,23 @@ export const DbService = {
     } else {
       const { error } = await supabase.from('nlt_practices').insert([dbData]);
       if (error) throw error;
+    }
+  },
+
+  deletePractice: async (id: string): Promise<void> => {
+    if (!supabase) throw new Error("Database non connesso.");
+    
+    // Tentativo di soft delete impostando il timestamp corrente
+    const timestamp = new Date().toISOString();
+    
+    const { error, status } = await supabase
+      .from('nlt_practices')
+      .update({ deleted_at: timestamp })
+      .eq('id', id);
+
+    if (error) {
+      console.error("Dettagli errore cancellazione:", error);
+      throw new Error(`Errore DB (${error.code}): ${error.message}`);
     }
   },
 

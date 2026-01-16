@@ -1,3 +1,4 @@
+
 export enum DealStatus {
   IN_CORSO = 'In Corso',
   CHIUSA = 'Chiusa',
@@ -44,6 +45,11 @@ export interface Practice {
   numeroVeicoli: number;
   valoreTotale: number;
   
+  // Nuovi campi Dati Generali
+  valoreListinoTrattativa: number;
+  mesePrevistoChiusura: string;
+  valoreListinoAffidamento: number;
+
   // Trattativa
   statoTrattativa: DealStatus;
   annotazioniTrattativa: string;
@@ -52,13 +58,18 @@ export interface Practice {
   dataAffidamento?: string;
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
+  numeroVeicoliAffidamento: number; // Nuovo campo Affidamento
 
   // Ordine
   dataOrdine?: string;
   numeroVeicoliOrdinati?: number;
   valoreProvvigioneTotale?: number;
+  valoreListinoOrdinato: number; // Nuovo campo Ordine
   statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
+
+  // Soft Delete
+  deletedAt?: string;
 }
 
 export interface Reminder {

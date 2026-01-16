@@ -1,12 +1,31 @@
+
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Provider } from '../types';
-import { ArrowLeft, Save, Lock } from 'lucide-react';
+import { ArrowLeft, Save, Lock, Trash2, AlertCircle } from 'lucide-react';
 import { PracticeReminders } from '../components/PracticeReminders';
+import { Modal } from '../components/Modal';
 
 const { useNavigate, useParams } = ReactRouterDOM;
+
+// Funzione per generare le opzioni Mese + Anno (Anno corrente e Anno successivo)
+const getMeseAnnoOptions = () => {
+  const mesi = [
+    'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+    'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'
+  ];
+  const currentYear = new Date().getFullYear();
+  const options: string[] = [];
+  
+  // Aggiungiamo i mesi dell'anno corrente
+  mesi.forEach(m => options.push(`${m} ${currentYear}`));
+  // Aggiungiamo i mesi dell'anno successivo per gestire lo scavallamento
+  mesi.forEach(m => options.push(`${m} ${currentYear + 1}`));
+  
+  return options;
+};
 
 export const PracticeForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +34,9 @@ export const PracticeForm: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const [formData, setFormData] = useState<Partial<Practice>>({
     data: new Date().toISOString().split('T')[0],
     statoTrattativa: DealStatus.IN_CORSO,
@@ -22,11 +44,18 @@ export const PracticeForm: React.FC = () => {
     statoOrdine: '',
     numeroVeicoli: 1,
     valoreTotale: 0,
+    valoreListinoTrattativa: 0,
+    mesePrevistoChiusura: '',
+    valoreListinoAffidamento: 0,
+    numeroVeicoliAffidamento: 0,
+    valoreListinoOrdinato: 0,
     provider: '',
     annotazioniTrattativa: '',
     annotazioniAffidamento: '',
     annotazioneOrdine: '',
   });
+
+  const MESE_ANNO_OPTIONS = getMeseAnnoOptions();
 
   useEffect(() => {
     DbService.getAllProviders(true).then(setProviders);
@@ -35,7 +64,15 @@ export const PracticeForm: React.FC = () => {
       setLoading(true);
       DbService.getPractices(user).then(practices => {
         const found = practices.find(p => p.id === id);
-        if (found) setFormData(found);
+        if (found) {
+          setFormData(found);
+        } else {
+          setErrorMessage("Pratica non trovata o non autorizzato.");
+        }
+        setLoading(false);
+      }).catch(err => {
+        console.error(err);
+        setErrorMessage("Errore nel caricamento della pratica.");
         setLoading(false);
       });
     }
@@ -45,7 +82,7 @@ export const PracticeForm: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name.includes('numero') || name.includes('valore') ? Number(value) : value
+      [name]: (name.includes('numero') || name.includes('valore') || name.includes('Provvigione')) ? Number(value) : value
     }));
   };
 
@@ -54,16 +91,35 @@ export const PracticeForm: React.FC = () => {
     if (!user) return;
 
     setLoading(true);
+    setErrorMessage(null);
     try {
       await DbService.savePractice({
         ...formData,
         agentId: formData.agentId || user.id
       });
       navigate('/practices');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving:", error);
+      setErrorMessage(`Errore durante il salvataggio: ${error.message || 'Riprova più tardi.'}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!id || !user?.isAdmin) return;
+    
+    setLoading(true);
+    try {
+        await DbService.deletePractice(id);
+        setShowDeleteModal(false);
+        navigate('/practices');
+    } catch (error: any) {
+        console.error("Errore cancellazione:", error);
+        setErrorMessage(`Impossibile eliminare la pratica: ${error.message}`);
+        setShowDeleteModal(false);
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -71,7 +127,7 @@ export const PracticeForm: React.FC = () => {
     <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide border-b-2 border-red-600 pb-2 mb-6 mt-10 w-fit">{title}</h3>
   );
 
-  const isAffidamentoEnabled = formData.statoTrattativa === DealStatus.IN_CORSO;
+  const isAffidamentoEnabled = formData.statoTrattativa === DealStatus.IN_CORSO || formData.statoTrattativa === DealStatus.CHIUSA;
   const isOrdineEnabled = formData.statoAffidamento === CreditStatus.ESITATO || 
                           formData.statoAffidamento === CreditStatus.ESITATO_CON_CONDIZIONI;
 
@@ -80,6 +136,27 @@ export const PracticeForm: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto pb-24 md:pb-20">
+        {/* Modali Personalizzati */}
+        <Modal 
+          isOpen={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteConfirm}
+          type="danger"
+          title="Conferma Eliminazione"
+          message={`Sei sicuro di voler eliminare la pratica di "${formData.cliente}"? L'operazione non può essere annullata.`}
+          confirmLabel="Elimina Definitivamente"
+          loading={loading}
+        />
+
+        <Modal 
+          isOpen={!!errorMessage}
+          onClose={() => setErrorMessage(null)}
+          title="Attenzione"
+          message={errorMessage || ''}
+          confirmLabel="Ho capito"
+          onConfirm={() => setErrorMessage(null)}
+        />
+
         <button 
             onClick={() => navigate('/practices')}
             className="flex items-center text-gray-500 hover:text-red-600 mb-6 transition-colors font-medium text-sm uppercase tracking-wide"
@@ -87,7 +164,16 @@ export const PracticeForm: React.FC = () => {
             <ArrowLeft className="w-4 h-4 mr-2" /> Torna all'elenco
         </button>
 
-        <div className="bg-white shadow-sm border border-gray-200 rounded-lg md:rounded-none overflow-hidden">
+        <div className="bg-white shadow-sm border border-gray-200 rounded-lg md:rounded-none overflow-hidden relative">
+            {loading && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] z-50 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2">
+                        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent animate-spin"></div>
+                        <span className="text-xs font-bold uppercase text-red-600 tracking-widest">Elaborazione...</span>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-black text-white p-4 md:p-6 flex flex-col md:flex-row justify-between md:items-center gap-2">
                 <h2 className="text-xl md:text-2xl font-bold tracking-tight">
                     {id ? 'MODIFICA PRATICA' : 'NUOVA PRATICA'}
@@ -98,6 +184,17 @@ export const PracticeForm: React.FC = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="p-4 md:p-8">
+                {/* Error Banner */}
+                {errorMessage && (
+                    <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-600 flex items-start gap-3 text-red-700">
+                        <AlertCircle size={20} className="flex-shrink-0" />
+                        <div>
+                            <p className="font-bold text-sm uppercase">Si è verificato un errore</p>
+                            <p className="text-xs">{errorMessage}</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Dati Generali */}
                 <h3 className="text-lg font-bold text-gray-900 uppercase tracking-wide border-b-2 border-red-600 pb-2 mb-6 w-fit">Dati Generali</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
@@ -120,13 +217,24 @@ export const PracticeForm: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className={LabelStyle}>N. Veicoli</label>
+                            <label className={LabelStyle}>N. VEICOLI POTENZIALI</label>
                             <input type="number" name="numeroVeicoli" value={formData.numeroVeicoli} onChange={handleChange} className={InputStyle} />
                         </div>
                         <div>
-                            <label className={LabelStyle}>Valore Totale (€)</label>
+                            <label className={LabelStyle}>PROV. TOTALE (€)</label>
                             <input type="number" name="valoreTotale" value={formData.valoreTotale} onChange={handleChange} className={InputStyle} />
                         </div>
+                    </div>
+                    <div>
+                        <label className={LabelStyle}>VAL TOT DI LISTINO IN TRATTATIVA (€)</label>
+                        <input type="number" name="valoreListinoTrattativa" value={formData.valoreListinoTrattativa} onChange={handleChange} className={InputStyle} />
+                    </div>
+                    <div>
+                        <label className={LabelStyle}>MESE PREVISTO DI CHIUSURA</label>
+                        <select name="mesePrevistoChiusura" value={formData.mesePrevistoChiusura} onChange={handleChange} className={InputStyle}>
+                            <option value="">-- SELEZIONA MESE E ANNO --</option>
+                            {MESE_ANNO_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
                     </div>
                 </div>
 
@@ -164,6 +272,14 @@ export const PracticeForm: React.FC = () => {
                                 {Object.values(CreditStatus).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                         </div>
+                        <div>
+                            <label className={LabelStyle}>VEICOLI AFFIDAMENTO</label>
+                            <input disabled={!isAffidamentoEnabled} type="number" name="numeroVeicoliAffidamento" value={formData.numeroVeicoliAffidamento} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>VAL TOT DI LISTINO IN AFFIDAMENTO (€)</label>
+                            <input disabled={!isAffidamentoEnabled} type="number" name="valoreListinoAffidamento" value={formData.valoreListinoAffidamento} onChange={handleChange} className={InputStyle} />
+                        </div>
                          <div className="md:col-span-2">
                             <label className={LabelStyle}>Note Affidamento</label>
                             <textarea disabled={!isAffidamentoEnabled} name="annotazioniAffidamento" rows={2} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} />
@@ -195,8 +311,12 @@ export const PracticeForm: React.FC = () => {
                             <input disabled={!isOrdineEnabled} type="number" name="numeroVeicoliOrdinati" value={formData.numeroVeicoliOrdinati || 0} onChange={handleChange} className={InputStyle} />
                         </div>
                         <div>
-                            <label className={LabelStyle}>Provvigione (€)</label>
+                            <label className={LabelStyle}>PROV. TOTALE (€)</label>
                             <input disabled={!isOrdineEnabled} type="number" name="valoreProvvigioneTotale" value={formData.valoreProvvigioneTotale || 0} onChange={handleChange} className={InputStyle} />
+                        </div>
+                        <div>
+                            <label className={LabelStyle}>VAL TOT DI LISTINO ORDINATO (€)</label>
+                            <input disabled={!isOrdineEnabled} type="number" name="valoreListinoOrdinato" value={formData.valoreListinoOrdinato || 0} onChange={handleChange} className={InputStyle} />
                         </div>
                         <div className="md:col-span-2">
                             <label className={LabelStyle}>Note Ordine</label>
@@ -208,6 +328,17 @@ export const PracticeForm: React.FC = () => {
                 {id && <PracticeReminders practiceId={id} />}
 
                 <div className="mt-12 pt-6 border-t border-gray-200 flex flex-col md:flex-row justify-end gap-3 sticky bottom-0 bg-white/95 backdrop-blur-sm p-4 z-20 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] -mx-4 md:mx-0">
+                    {id && user?.isAdmin && (
+                        <button 
+                            type="button"
+                            onClick={() => setShowDeleteModal(true)}
+                            disabled={loading}
+                            className="w-full md:w-auto px-8 py-3 border border-red-600 text-red-600 font-bold uppercase tracking-wider hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Trash2 size={18} />
+                            Elimina Pratica
+                        </button>
+                    )}
                     <button 
                         type="button"
                         onClick={() => navigate('/practices')}

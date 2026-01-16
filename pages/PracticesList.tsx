@@ -1,7 +1,8 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, Reminder } from '../types';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder } from '../types';
 import * as ReactRouterDOM from 'react-router-dom';
 import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase } from 'lucide-react';
 
@@ -34,6 +35,9 @@ export const PracticesList: React.FC = () => {
         } else {
             applyFilters(data, []);
         }
+        setLoading(false);
+      }).catch(err => {
+        console.error("Errore inizializzazione lista:", err);
         setLoading(false);
       });
     }
@@ -98,24 +102,41 @@ export const PracticesList: React.FC = () => {
       setLocalStatusFilter('all');
   };
 
-  const getStatusColor = (status: string) => {
-    if (!status) return 'bg-gray-100 text-gray-400 border border-gray-200';
-    if (status === DealStatus.IN_CORSO) return 'bg-red-50 text-red-700 border border-red-100'; 
-    if (status === DealStatus.CHIUSA) return 'bg-black text-white border border-black'; 
-    if (status === DealStatus.FALLITA) return 'bg-gray-200 text-gray-600 border border-gray-300'; 
-    if (status.includes('Esitato')) return 'bg-green-50 text-green-700 border border-green-200';
-    if (status.includes('Bocciato')) return 'bg-red-100 text-red-800 border border-red-200';
-    return 'bg-white text-gray-700 border border-gray-200';
+  const getStatusStyles = (status: string) => {
+    const base = "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tight border transition-all duration-200 whitespace-nowrap max-w-fit";
+    
+    if (!status) return { className: `${base} bg-gray-50 text-gray-400 border-gray-100` };
+
+    // Deal Status
+    if (status === DealStatus.IN_CORSO) return { className: `${base} bg-orange-50 text-orange-700 border-orange-200` };
+    if (status === DealStatus.CHIUSA) return { className: `${base} bg-emerald-50 text-emerald-700 border-emerald-200` };
+    if (status === DealStatus.FALLITA) return { className: `${base} bg-slate-100 text-slate-600 border-slate-200` };
+
+    // Credit Status
+    if (status === CreditStatus.IN_ATTESA) return { className: `${base} bg-amber-50 text-amber-700 border-amber-200` };
+    if (status === CreditStatus.BOCCIATO) return { className: `${base} bg-rose-50 text-rose-700 border-rose-200` };
+    if (status === CreditStatus.ESITATO) return { className: `${base} bg-emerald-50 text-emerald-700 border-emerald-200` };
+    if (status === CreditStatus.ESITATO_CON_CONDIZIONI) return { className: `${base} bg-sky-50 text-sky-700 border-sky-200` };
+
+    // Order Status
+    if (status === OrderStatus.INVIATO) return { className: `${base} bg-emerald-50 text-emerald-700 border-emerald-200` };
+    if (status === OrderStatus.NON_INVIATO) return { className: `${base} bg-slate-50 text-slate-500 border-slate-200` };
+    if (status === OrderStatus.FALLITO) return { className: `${base} bg-rose-50 text-rose-700 border-rose-200` };
+
+    return { className: `${base} bg-white text-gray-700 border-gray-200` };
   };
 
-  const StatusBadge = ({ status, label }: { status: string, label?: string }) => (
-    <div className="flex flex-col gap-1">
-        {label && <span className="text-[10px] uppercase text-gray-400 font-bold">{label}</span>}
-        <span className={`w-fit px-2 py-1 text-[10px] md:text-xs font-bold uppercase tracking-wider rounded ${getStatusColor(status)}`}>
-        {status || '-'}
-        </span>
-    </div>
-  );
+  const StatusBadge = ({ status, label }: { status: string, label?: string }) => {
+    const styles = getStatusStyles(status);
+    return (
+      <div className="flex flex-col gap-1 items-start">
+          {label && <span className="text-[9px] uppercase text-gray-400 font-bold ml-1">{label}</span>}
+          <div className={styles.className}>
+              {status || 'Da Definire'}
+          </div>
+      </div>
+    );
+  };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Caricamento elenco...</div>;
 
@@ -199,7 +220,7 @@ export const PracticesList: React.FC = () => {
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-y-3 gap-x-2 mb-4">
+                <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4">
                     <StatusBadge label="Trattativa" status={practice.statoTrattativa} />
                     <StatusBadge label="Affidamento" status={practice.statoAffidamento} />
                     <StatusBadge label="Ordine" status={practice.statoOrdine} />
@@ -222,38 +243,40 @@ export const PracticesList: React.FC = () => {
             <thead className="bg-black text-white">
               <tr>
                 {(user?.isAdmin || !user?.isAgent) && (
-                    <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Agente</th>
+                    <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Agente</th>
                 )}
                 <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Cliente</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Data</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Provider</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Trattativa</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Affidamento</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Ordine</th>
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300 text-right">Azioni</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Data</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Provider</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Trattativa</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Affidamento</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Ordine</th>
+                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-right">Azioni</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map((practice) => (
-                <tr key={practice.id} className="hover:bg-red-50 transition-colors group">
+                <tr key={practice.id} className="hover:bg-gray-50 transition-colors group">
                   {(user?.isAdmin || !user?.isAgent) && (
-                      <td className="px-6 py-4 text-sm font-bold text-gray-500">{practice.agentName}</td>
+                      <td className="px-6 py-4 text-[11px] font-bold text-gray-500">{practice.agentName}</td>
                   )}
                   <td className="px-6 py-4 font-bold text-gray-900">{practice.cliente}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm font-medium">{new Date(practice.data).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-gray-700">{practice.provider}</td>
+                  <td className="px-6 py-4 text-gray-600 text-[11px] font-medium">{new Date(practice.data).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-gray-700 text-[11px]">{practice.provider}</td>
                   
                   <td className="px-6 py-4"><StatusBadge status={practice.statoTrattativa} /></td>
                   <td className="px-6 py-4"><StatusBadge status={practice.statoAffidamento} /></td>
                   <td className="px-6 py-4"><StatusBadge status={practice.statoOrdine} /></td>
 
                   <td className="px-6 py-4 text-right">
-                    <Link 
-                      to={`/practices/${practice.id}`}
-                      className="inline-flex items-center gap-1 text-gray-400 hover:text-red-600 font-bold uppercase text-xs transition-colors"
-                    >
-                      Gestisci <ArrowRight size={14} />
-                    </Link>
+                    <div className="flex items-center justify-end gap-3">
+                        <Link 
+                          to={`/practices/${practice.id}`}
+                          className="inline-flex items-center gap-1 text-gray-400 hover:text-red-600 font-bold uppercase text-[11px] transition-colors"
+                        >
+                          Gestisci <ArrowRight size={14} />
+                        </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
