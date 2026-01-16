@@ -79,7 +79,6 @@ const toDbPractice = (p: Partial<Practice>) => {
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     stato_ordine: p.statoOrdine || null,
-    // Fix: access correct property name from Practice interface
     annotazione_ordine: p.annotazioneOrdine,
     deleted_at: p.deletedAt
   };
@@ -155,7 +154,12 @@ export const DbService = {
     if (!supabase) return [];
     
     // Filtro per escludere le pratiche cancellate (deleted_at IS NULL)
-    let query = supabase.from('nlt_practices').select('*').is('deleted_at', null);
+    // Ordinamento decrescente per 'data' dalla query (più recente sopra)
+    let query = supabase
+      .from('nlt_practices')
+      .select('*')
+      .is('deleted_at', null)
+      .order('data', { ascending: false });
     
     if (user.isAgent && !user.isAdmin) {
       query = query.eq('agent_id', user.id);
@@ -165,16 +169,14 @@ export const DbService = {
     
     if (error) {
       console.error("Errore recupero pratiche:", error);
-      if (error.code === '42703') {
-          const retry = await supabase.from('nlt_practices').select('*');
-          if (retry.data) return retry.data.map(fromDbPractice);
-      }
       return [];
     }
 
     if (!practicesData) return [];
 
     let resultPractices = [...practicesData];
+    
+    // Arricchimento nomi agenti se necessario
     if ((user.isAdmin || !user.isAgent) && resultPractices.length > 0) {
         const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
         if (agentsData) {
@@ -185,7 +187,11 @@ export const DbService = {
             }));
         }
     }
-    return resultPractices.map(fromDbPractice);
+
+    // Mappatura e un ULTERIORE ordinamento esplicito lato client per garantire il risultato richiesto
+    return resultPractices
+      .map(fromDbPractice)
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   },
 
   savePractice: async (practice: Partial<Practice>): Promise<void> => {
@@ -202,19 +208,12 @@ export const DbService = {
 
   deletePractice: async (id: string): Promise<void> => {
     if (!supabase) throw new Error("Database non connesso.");
-    
-    // Tentativo di soft delete impostando il timestamp corrente
     const timestamp = new Date().toISOString();
-    
-    const { error, status } = await supabase
+    const { error } = await supabase
       .from('nlt_practices')
       .update({ deleted_at: timestamp })
       .eq('id', id);
-
-    if (error) {
-      console.error("Dettagli errore cancellazione:", error);
-      throw new Error(`Errore DB (${error.code}): ${error.message}`);
-    }
+    if (error) throw error;
   },
 
   // --- REMINDERS ---
