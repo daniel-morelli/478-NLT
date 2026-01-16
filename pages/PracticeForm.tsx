@@ -42,13 +42,14 @@ export const PracticeForm: React.FC = () => {
     statoTrattativa: DealStatus.IN_CORSO,
     statoAffidamento: '',
     statoOrdine: '',
-    numeroVeicoli: 1,
-    valoreTotale: 0,
-    valoreListinoTrattativa: 0,
+    // Inizializziamo i campi numerici a undefined invece di 0 per permettere la visualizzazione vuota
+    numeroVeicoli: undefined,
+    valoreTotale: undefined,
+    valoreListinoTrattativa: undefined,
     mesePrevistoChiusura: '',
-    valoreListinoAffidamento: 0,
-    numeroVeicoliAffidamento: 0,
-    valoreListinoOrdinato: 0,
+    valoreListinoAffidamento: undefined,
+    numeroVeicoliAffidamento: undefined,
+    valoreListinoOrdinato: undefined,
     provider: '',
     annotazioniTrattativa: '',
     annotazioniAffidamento: '',
@@ -80,10 +81,19 @@ export const PracticeForm: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: (name.includes('numero') || name.includes('valore') || name.includes('Provvigione')) ? Number(value) : value
-    }));
+    
+    // Gestione specifica per i campi numerici
+    if (name.includes('numero') || name.includes('valore') || name.includes('Provvigione')) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value === '' ? undefined : Number(value)
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,6 +103,7 @@ export const PracticeForm: React.FC = () => {
     setLoading(true);
     setErrorMessage(null);
     try {
+      // Inoltriamo i dati. Il dbService pulirà gli undefined prima di inviare a Supabase
       await DbService.savePractice({
         ...formData,
         agentId: formData.agentId || user.id
@@ -132,6 +143,7 @@ export const PracticeForm: React.FC = () => {
                           formData.statoAffidamento === CreditStatus.ESITATO_CON_CONDIZIONI;
 
   const InputStyle = "w-full border border-gray-300 bg-white text-gray-900 rounded-none p-3 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all disabled:bg-gray-100 disabled:text-gray-400";
+  const NumberInputStyle = `${InputStyle} text-right`;
   const LabelStyle = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2";
 
   return (
@@ -218,16 +230,16 @@ export const PracticeForm: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className={LabelStyle}>N. VEICOLI POTENZIALI</label>
-                            <input type="number" name="numeroVeicoli" value={formData.numeroVeicoli} onChange={handleChange} className={InputStyle} />
+                            <input type="number" name="numeroVeicoli" value={formData.numeroVeicoli ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                         <div>
                             <label className={LabelStyle}>PROV. TOTALE (€)</label>
-                            <input type="number" name="valoreTotale" value={formData.valoreTotale} onChange={handleChange} className={InputStyle} />
+                            <input type="number" name="valoreTotale" value={formData.valoreTotale ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                     </div>
                     <div>
                         <label className={LabelStyle}>VAL TOT DI LISTINO IN TRATTATIVA (€)</label>
-                        <input type="number" name="valoreListinoTrattativa" value={formData.valoreListinoTrattativa} onChange={handleChange} className={InputStyle} />
+                        <input type="number" name="valoreListinoTrattativa" value={formData.valoreListinoTrattativa ?? ''} onChange={handleChange} className={NumberInputStyle} />
                     </div>
                     <div>
                         <label className={LabelStyle}>MESE PREVISTO DI CHIUSURA</label>
@@ -274,11 +286,11 @@ export const PracticeForm: React.FC = () => {
                         </div>
                         <div>
                             <label className={LabelStyle}>VEICOLI AFFIDAMENTO</label>
-                            <input disabled={!isAffidamentoEnabled} type="number" name="numeroVeicoliAffidamento" value={formData.numeroVeicoliAffidamento} onChange={handleChange} className={InputStyle} />
+                            <input disabled={!isAffidamentoEnabled} type="number" name="numeroVeicoliAffidamento" value={formData.numeroVeicoliAffidamento ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                         <div>
                             <label className={LabelStyle}>VAL TOT DI LISTINO IN AFFIDAMENTO (€)</label>
-                            <input disabled={!isAffidamentoEnabled} type="number" name="valoreListinoAffidamento" value={formData.valoreListinoAffidamento} onChange={handleChange} className={InputStyle} />
+                            <input disabled={!isAffidamentoEnabled} type="number" name="valoreListinoAffidamento" value={formData.valoreListinoAffidamento ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                          <div className="md:col-span-2">
                             <label className={LabelStyle}>Note Affidamento</label>
@@ -308,15 +320,15 @@ export const PracticeForm: React.FC = () => {
                         </div>
                         <div>
                             <label className={LabelStyle}>Veicoli Ordinati</label>
-                            <input disabled={!isOrdineEnabled} type="number" name="numeroVeicoliOrdinati" value={formData.numeroVeicoliOrdinati || 0} onChange={handleChange} className={InputStyle} />
+                            <input disabled={!isOrdineEnabled} type="number" name="numeroVeicoliOrdinati" value={formData.numeroVeicoliOrdinati ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                         <div>
                             <label className={LabelStyle}>PROV. TOTALE (€)</label>
-                            <input disabled={!isOrdineEnabled} type="number" name="valoreProvvigioneTotale" value={formData.valoreProvvigioneTotale || 0} onChange={handleChange} className={InputStyle} />
+                            <input disabled={!isOrdineEnabled} type="number" name="valoreProvvigioneTotale" value={formData.valoreProvvigioneTotale ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                         <div>
                             <label className={LabelStyle}>VAL TOT DI LISTINO ORDINATO (€)</label>
-                            <input disabled={!isOrdineEnabled} type="number" name="valoreListinoOrdinato" value={formData.valoreListinoOrdinato || 0} onChange={handleChange} className={InputStyle} />
+                            <input disabled={!isOrdineEnabled} type="number" name="valoreListinoOrdinato" value={formData.valoreListinoOrdinato ?? ''} onChange={handleChange} className={NumberInputStyle} />
                         </div>
                         <div className="md:col-span-2">
                             <label className={LabelStyle}>Note Ordine</label>

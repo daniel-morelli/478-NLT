@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -7,7 +8,9 @@ import {
   LogOut, 
   Menu,
   X,
-  Briefcase
+  Briefcase,
+  UserCircle,
+  Calendar
 } from 'lucide-react';
 import * as ReactRouterDOM from 'react-router-dom';
 
@@ -48,7 +51,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         />
       )}
 
-      {/* Sidebar - Rebranding: Nero (bg-black) e Rosso */}
+      {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-30 w-64 bg-black text-white transform transition-transform duration-200 ease-in-out
         md:relative md:translate-x-0 border-r border-gray-800
@@ -57,7 +60,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">478 <span className="text-red-600">NLT</span></h1>
-            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.1.0</p>
+            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.2.0</p>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400">
             <X />
@@ -79,6 +82,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 icon={FileText} 
                 label={!user.isAgent ? "Pratiche" : "Le Mie Pratiche"} 
             />
+
+            <NavItem to="/calendar" icon={Calendar} label="Calendario" />
+
+            <NavItem to="/profile" icon={UserCircle} label="Il mio Profilo" />
             
             {user.isAdmin && (
               <>
@@ -103,7 +110,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto w-full bg-gray-50">
-        {/* Mobile Header */}
         <div className="md:hidden bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-10 border-b border-gray-200">
           <h1 className="font-bold text-gray-900">478 <span className="text-red-600">NLT</span></h1>
           <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-600">

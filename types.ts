@@ -20,7 +20,7 @@ export enum OrderStatus {
 
 export interface Agent {
   id: string;
-  pin: string;
+  password: string; // Rinominato da pin
   nome: string;
   email: string;
   cell: string;

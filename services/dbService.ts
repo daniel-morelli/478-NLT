@@ -5,7 +5,7 @@ import { supabase } from './firebaseConfig';
 // --- MAPPERS ---
 const fromDbAgent = (dbAgent: any): Agent => ({
   id: dbAgent.id,
-  pin: dbAgent.pin,
+  password: dbAgent.pin, // Mappiamo la colonna 'pin' alla proprietà 'password'
   nome: dbAgent.nome,
   email: dbAgent.email,
   cell: dbAgent.cell,
@@ -15,7 +15,7 @@ const fromDbAgent = (dbAgent: any): Agent => ({
 });
 
 const toDbAgent = (agent: Partial<Agent>) => ({
-  pin: agent.pin,
+  pin: agent.password, // Mappiamo 'password' alla colonna 'pin'
   nome: agent.nome,
   email: agent.email,
   cell: agent.cell,
@@ -55,6 +55,7 @@ const fromDbPractice = (p: any): Practice => ({
 });
 
 const toDbPractice = (p: Partial<Practice>) => {
+  // Fix naming mismatches when mapping practice object properties to database columns
   const data: any = {
     agent_id: p.agentId,
     data: p.data,
@@ -71,9 +72,11 @@ const toDbPractice = (p: Partial<Practice>) => {
     valore_listino_ordinato: p.valoreListinoOrdinato,
 
     stato_trattativa: p.statoTrattativa,
+    // Corrected snake_case property access to camelCase as defined in types.ts
     annotazioni_trattativa: p.annotazioniTrattativa,
     data_affidamento: p.dataAffidamento,
     stato_affidamento: p.statoAffidamento || null,
+    // Corrected snake_case property access to camelCase as defined in types.ts
     annotazioni_affidamento: p.annotazioniAffidamento,
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
@@ -104,16 +107,26 @@ const fromDbReminder = (r: any): Reminder => ({
 
 export const DbService = {
   // --- AGENTS ---
-  getAgentByPin: async (pin: string): Promise<Agent | null> => {
+  getAgentByCredentials: async (email: string, password: string): Promise<Agent | null> => {
     if (!supabase) throw new Error("Supabase client non inizializzato");
     const { data, error } = await supabase
       .from('nlt_agents')
       .select('*')
-      .eq('pin', pin)
+      .eq('email', email)
+      .eq('pin', password) // Usiamo la colonna 'pin' per la password
       .eq('is_active', true)
       .maybeSingle();
     if (error) throw error;
     return data ? fromDbAgent(data) : null;
+  },
+
+  updatePassword: async (agentId: string, newPassword: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase
+      .from('nlt_agents')
+      .update({ pin: newPassword })
+      .eq('id', agentId);
+    if (error) throw error;
   },
 
   getAllAgents: async (): Promise<Agent[]> => {
@@ -153,8 +166,6 @@ export const DbService = {
   getPractices: async (user: Agent): Promise<Practice[]> => {
     if (!supabase) return [];
     
-    // Filtro per escludere le pratiche cancellate (deleted_at IS NULL)
-    // Ordinamento decrescente per 'data' dalla query (più recente sopra)
     let query = supabase
       .from('nlt_practices')
       .select('*')
@@ -176,7 +187,6 @@ export const DbService = {
 
     let resultPractices = [...practicesData];
     
-    // Arricchimento nomi agenti se necessario
     if ((user.isAdmin || !user.isAgent) && resultPractices.length > 0) {
         const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
         if (agentsData) {
@@ -188,7 +198,6 @@ export const DbService = {
         }
     }
 
-    // Mappatura e un ULTERIORE ordinamento esplicito lato client per garantire il risultato richiesto
     return resultPractices
       .map(fromDbPractice)
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());

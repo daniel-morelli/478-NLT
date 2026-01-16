@@ -1,3 +1,4 @@
+
 import React from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -8,6 +9,8 @@ import { PracticesList } from './pages/PracticesList';
 import { PracticeForm } from './pages/PracticeForm';
 import { AdminAgents } from './pages/AdminAgents';
 import { AdminProviders } from './pages/AdminProviders';
+import { Profile } from './pages/Profile';
+import { CalendarPage } from './pages/CalendarPage';
 
 const { HashRouter, Routes, Route, Navigate } = ReactRouterDOM;
 
@@ -45,6 +48,18 @@ const AppRoutes = () => {
             <Route path="/practices/:id" element={
                 <ProtectedRoute>
                     <PracticeForm />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/calendar" element={
+                <ProtectedRoute>
+                    <CalendarPage />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/profile" element={
+                <ProtectedRoute>
+                    <Profile />
                 </ProtectedRoute>
             } />
             

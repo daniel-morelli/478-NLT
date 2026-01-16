@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
@@ -30,7 +31,7 @@ export const AdminAgents: React.FC = () => {
   };
 
   const handleNew = () => {
-    setFormAgent({ isAdmin: false, isActive: true, isAgent: true, nome: '', email: '', cell: '', pin: '' });
+    setFormAgent({ isAdmin: false, isActive: true, isAgent: true, nome: '', email: '', cell: '', password: '' });
     setIsEditing(true);
   };
 
@@ -69,9 +70,9 @@ export const AdminAgents: React.FC = () => {
             <h3 className="font-bold text-lg mb-4 text-gray-800 uppercase tracking-wide">{formAgent.id ? 'Modifica Agente' : 'Nuovo Agente'}</h3>
             <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input required placeholder="Nome Cognome" className={InputStyle} value={formAgent.nome || ''} onChange={e => setFormAgent({...formAgent, nome: e.target.value})} />
-                <input required placeholder="Email" type="email" className={InputStyle} value={formAgent.email || ''} onChange={e => setFormAgent({...formAgent, email: e.target.value})} />
+                <input required placeholder="Email Aziendale" type="email" className={InputStyle} value={formAgent.email || ''} onChange={e => setFormAgent({...formAgent, email: e.target.value})} />
                 <input required placeholder="Cellulare" className={InputStyle} value={formAgent.cell || ''} onChange={e => setFormAgent({...formAgent, cell: e.target.value})} />
-                <input required placeholder="PIN (4 cifre)" maxLength={4} className={InputStyle} value={formAgent.pin || ''} onChange={e => setFormAgent({...formAgent, pin: e.target.value})} />
+                <input required placeholder="Password Temporanea (min 4 car.)" minLength={4} className={InputStyle} value={formAgent.password || ''} onChange={e => setFormAgent({...formAgent, password: e.target.value})} />
                 
                 <div className="md:col-span-2 bg-gray-50 p-4 border border-gray-200 space-y-3">
                     <p className="text-sm font-bold text-gray-600 mb-2 uppercase">Permessi e Ruoli</p>
