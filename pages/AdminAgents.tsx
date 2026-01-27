@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Agent } from '../types';
-import { UserPlus, Shield, Activity, UserX, Save, Briefcase, User } from 'lucide-react';
+import { UserPlus, Shield, Activity, UserX, Save, Briefcase, User, Star } from 'lucide-react';
 
 export const AdminAgents: React.FC = () => {
   const { user } = useAuth();
@@ -11,6 +11,7 @@ export const AdminAgents: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formAgent, setFormAgent] = useState<Partial<Agent>>({
     isAdmin: false,
+    isTeamLeader: false,
     isActive: true,
     isAgent: true
   });
@@ -23,7 +24,7 @@ export const AdminAgents: React.FC = () => {
     DbService.getAllAgents().then(setAgents);
   };
 
-  if (!user?.isAdmin) return <div>Accesso Negato</div>;
+  if (!user?.isAdmin) return <div className="p-8 text-center text-red-600 font-bold">Accesso Negato: Solo l'amministratore può gestire gli agenti.</div>;
 
   const handleEdit = (agent: Agent) => {
     setFormAgent(agent);
@@ -31,7 +32,7 @@ export const AdminAgents: React.FC = () => {
   };
 
   const handleNew = () => {
-    setFormAgent({ isAdmin: false, isActive: true, isAgent: true, nome: '', email: '', cell: '', password: '' });
+    setFormAgent({ isAdmin: false, isTeamLeader: false, isActive: true, isAgent: true, nome: '', email: '', cell: '', password: '' });
     setIsEditing(true);
   };
 
@@ -56,12 +57,8 @@ export const AdminAgents: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Gestione Agenti</h2>
             <p className="text-sm text-gray-500">Amministrazione permessi e utenze</p>
         </div>
-        <button 
-          onClick={handleNew}
-          className="flex items-center gap-2 bg-black text-white px-4 py-2 hover:bg-gray-800 shadow-lg transition-colors font-medium"
-        >
-          <UserPlus size={18} />
-          Nuovo Agente
+        <button onClick={handleNew} className="flex items-center gap-2 bg-black text-white px-4 py-2 hover:bg-gray-800 shadow-lg transition-colors font-medium">
+          <UserPlus size={18} /> Nuovo Agente
         </button>
       </div>
 
@@ -72,22 +69,26 @@ export const AdminAgents: React.FC = () => {
                 <input required placeholder="Nome Cognome" className={InputStyle} value={formAgent.nome || ''} onChange={e => setFormAgent({...formAgent, nome: e.target.value})} />
                 <input required placeholder="Email Aziendale" type="email" className={InputStyle} value={formAgent.email || ''} onChange={e => setFormAgent({...formAgent, email: e.target.value})} />
                 <input required placeholder="Cellulare" className={InputStyle} value={formAgent.cell || ''} onChange={e => setFormAgent({...formAgent, cell: e.target.value})} />
-                <input required placeholder="Password Temporanea (min 4 car.)" minLength={4} className={InputStyle} value={formAgent.password || ''} onChange={e => setFormAgent({...formAgent, password: e.target.value})} />
+                <input required placeholder="Password Temporanea" minLength={4} className={InputStyle} value={formAgent.password || ''} onChange={e => setFormAgent({...formAgent, password: e.target.value})} />
                 
                 <div className="md:col-span-2 bg-gray-50 p-4 border border-gray-200 space-y-3">
                     <p className="text-sm font-bold text-gray-600 mb-2 uppercase">Permessi e Ruoli</p>
                     <div className="flex flex-wrap gap-6">
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input type="checkbox" checked={formAgent.isAgent} onChange={e => setFormAgent({...formAgent, isAgent: e.target.checked})} className="w-5 h-5 text-red-600 rounded focus:ring-red-600" />
-                            <span className="text-sm text-gray-800 font-medium">Agente Operativo <span className="text-xs text-gray-500 block font-normal">Vede solo le sue pratiche</span></span>
+                            <input type="checkbox" checked={formAgent.isAgent} onChange={e => setFormAgent({...formAgent, isAgent: e.target.checked})} className="w-5 h-5 text-red-600" />
+                            <span className="text-sm text-gray-800 font-medium">Agente</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input type="checkbox" checked={formAgent.isAdmin} onChange={e => setFormAgent({...formAgent, isAdmin: e.target.checked})} className="w-5 h-5 text-red-600 rounded focus:ring-red-600" />
-                            <span className="text-sm text-gray-800 font-medium">Amministratore <span className="text-xs text-gray-500 block font-normal">Gestione completa sistema</span></span>
+                            <input type="checkbox" checked={formAgent.isTeamLeader} onChange={e => setFormAgent({...formAgent, isTeamLeader: e.target.checked})} className="w-5 h-5 text-red-600" />
+                            <span className="text-sm text-gray-800 font-medium">Team Leader (Supervisore)</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input type="checkbox" checked={formAgent.isActive} onChange={e => setFormAgent({...formAgent, isActive: e.target.checked})} className="w-5 h-5 text-red-600 rounded focus:ring-red-600" />
-                            <span className="text-sm text-gray-800 font-medium">Account Attivo <span className="text-xs text-gray-500 block font-normal">Abilitato all'accesso</span></span>
+                            <input type="checkbox" checked={formAgent.isAdmin} onChange={e => setFormAgent({...formAgent, isAdmin: e.target.checked})} className="w-5 h-5 text-red-600" />
+                            <span className="text-sm text-gray-800 font-medium">Amministratore</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" checked={formAgent.isActive} onChange={e => setFormAgent({...formAgent, isActive: e.target.checked})} className="w-5 h-5 text-red-600" />
+                            <span className="text-sm text-gray-800 font-medium">Attivo</span>
                         </label>
                     </div>
                 </div>
@@ -123,33 +124,17 @@ export const AdminAgents: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col gap-1 items-start">
-                                {agent.isAdmin && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-black text-white text-xs font-bold uppercase">
-                                        <Shield size={10}/> Admin
-                                    </span>
-                                )}
-                                {agent.isAgent ? (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold uppercase">
-                                        <User size={10}/> Agente
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-700 text-xs font-bold uppercase">
-                                        <Briefcase size={10}/> Supervisore
-                                    </span>
-                                )}
+                                {agent.isAdmin && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-black text-white text-[9px] font-black uppercase"><Shield size={10}/> Admin</span>}
+                                {agent.isTeamLeader && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase"><Star size={10}/> Team Leader</span>}
+                                {agent.isAgent && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[9px] font-black uppercase"><User size={10}/> Agente</span>}
                             </div>
                         </td>
                         <td className="px-6 py-4">
-                            {agent.isActive ? 
-                                <span className="text-green-600 text-sm font-bold flex items-center gap-1"><Activity size={14}/> ATTIVO</span> : 
-                                <span className="text-gray-400 text-sm font-bold flex items-center gap-1"><UserX size={14}/> DISABILITATO</span>
-                            }
+                            {agent.isActive ? <span className="text-green-600 text-[10px] font-black flex items-center gap-1"><Activity size={14}/> ATTIVO</span> : <span className="text-gray-400 text-[10px] font-black flex items-center gap-1"><UserX size={14}/> DISATTIVATO</span>}
                         </td>
-                        <td className="px-6 py-4 text-right flex justify-end gap-2">
-                            <button onClick={() => handleEdit(agent)} className="text-gray-600 hover:text-black p-1 font-bold text-xs uppercase tracking-wide">Modifica</button>
-                            <button onClick={() => toggleActive(agent)} className={`${agent.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'} p-1 font-bold text-xs uppercase tracking-wide`}>
-                                {agent.isActive ? 'Disabilita' : 'Attiva'}
-                            </button>
+                        <td className="px-6 py-4 text-right">
+                            <button onClick={() => handleEdit(agent)} className="text-gray-600 hover:text-black p-1 font-bold text-xs uppercase tracking-wide mr-2">Modifica</button>
+                            <button onClick={() => toggleActive(agent)} className={`${agent.isActive ? 'text-red-600' : 'text-green-600'} p-1 font-bold text-xs uppercase tracking-wide`}>{agent.isActive ? 'Disabilita' : 'Attiva'}</button>
                         </td>
                     </tr>
                 ))}

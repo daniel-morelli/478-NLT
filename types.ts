@@ -8,24 +8,25 @@ export enum DealStatus {
 export enum CreditStatus {
   IN_ATTESA = 'In Attesa',
   BOCCIATO = 'Bocciato',
-  ESITATO = 'Esitato',
-  ESITATO_CON_CONDIZIONI = 'Esitato con Condizioni'
+  APPROVATO = 'Approvato',
+  APPROVATO_CON_CONDIZIONI = 'Approvato con Condizioni'
 }
 
 export enum OrderStatus {
   NON_INVIATO = 'Non Inviato',
   INVIATO = 'Inviato',
-  FALLITO = 'Fallito'
+  ANNULLATO = 'Annullato'
 }
 
 export interface Agent {
   id: string;
-  password: string; // Rinominato da pin
+  password: string;
   nome: string;
   email: string;
   cell: string;
   isAgent: boolean;
   isAdmin: boolean;
+  isTeamLeader: boolean; // Nuovo ruolo
   isActive: boolean;
 }
 
@@ -45,30 +46,26 @@ export interface Practice {
   numeroVeicoli: number;
   valoreTotale: number;
   
-  // Nuovi campi Dati Generali
   valoreListinoTrattativa: number;
   mesePrevistoChiusura: string;
   valoreListinoAffidamento: number;
 
-  // Trattativa
   statoTrattativa: DealStatus;
   annotazioniTrattativa: string;
 
-  // Affidamento
   dataAffidamento?: string;
+  valoreProvvigioneAffidamento?: number; // Nuova Provvigione Affidamento
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
-  numeroVeicoliAffidamento: number; // Nuovo campo Affidamento
+  numeroVeicoliAffidamento: number;
 
-  // Ordine
   dataOrdine?: string;
   numeroVeicoliOrdinati?: number;
   valoreProvvigioneTotale?: number;
-  valoreListinoOrdinato: number; // Nuovo campo Ordine
+  valoreListinoOrdinato: number;
   statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
 
-  // Soft Delete
   deletedAt?: string;
 }
 
@@ -76,7 +73,7 @@ export interface Reminder {
   id: string;
   practiceId: string;
   createdAt: string;
-  expirationDate: string; // ISO string for datetime-local
+  expirationDate: string;
   description: string;
   status: 'aperto' | 'chiuso' | 'eliminato';
   feedback?: string;

@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, Reminder } from '../types';
-import * as ReactRouterDOM from 'react-router-dom';
+// Changed from namespace import to named imports to fix type errors
+import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
@@ -11,8 +12,6 @@ import {
   CheckCircle, 
   AlertCircle 
 } from 'lucide-react';
-
-const { useNavigate } = ReactRouterDOM;
 
 export const CalendarPage: React.FC = () => {
   const { user } = useAuth();

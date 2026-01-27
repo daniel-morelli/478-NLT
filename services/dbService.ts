@@ -5,22 +5,24 @@ import { supabase } from './firebaseConfig';
 // --- MAPPERS ---
 const fromDbAgent = (dbAgent: any): Agent => ({
   id: dbAgent.id,
-  password: dbAgent.pin, // Mappiamo la colonna 'pin' alla proprietà 'password'
+  password: dbAgent.pin,
   nome: dbAgent.nome,
   email: dbAgent.email,
   cell: dbAgent.cell,
   isAgent: dbAgent.is_agent,
   isAdmin: dbAgent.is_admin,
+  isTeamLeader: dbAgent.is_team_leader ?? false,
   isActive: dbAgent.is_active
 });
 
 const toDbAgent = (agent: Partial<Agent>) => ({
-  pin: agent.password, // Mappiamo 'password' alla colonna 'pin'
+  pin: agent.password,
   nome: agent.nome,
   email: agent.email,
   cell: agent.cell,
   is_agent: agent.isAgent,
   is_admin: agent.isAdmin,
+  is_team_leader: agent.isTeamLeader,
   is_active: agent.isActive
 });
 
@@ -34,10 +36,10 @@ const fromDbPractice = (p: any): Practice => ({
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
   
-  // Nuovi campi
   valoreListinoTrattativa: p.valore_listino_trattativa ?? 0,
   mesePrevistoChiusura: p.mese_previsto_chiusura ?? '',
   valoreListinoAffidamento: p.valore_listino_affidamento ?? 0,
+  valoreProvvigioneAffidamento: p.valore_provvigione_affidamento ?? 0, // Mapping nuovo campo
   numeroVeicoliAffidamento: p.numero_veicoli_affidamento ?? 0,
   valoreListinoOrdinato: p.valore_listino_ordinato ?? 0,
 
@@ -55,7 +57,6 @@ const fromDbPractice = (p: any): Practice => ({
 });
 
 const toDbPractice = (p: Partial<Practice>) => {
-  // Fix naming mismatches when mapping practice object properties to database columns
   const data: any = {
     agent_id: p.agentId,
     data: p.data,
@@ -64,19 +65,17 @@ const toDbPractice = (p: Partial<Practice>) => {
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     
-    // Nuovi campi
     valore_listino_trattativa: p.valoreListinoTrattativa,
     mese_previsto_chiusura: p.mesePrevistoChiusura,
     valore_listino_affidamento: p.valoreListinoAffidamento,
+    valore_provvigione_affidamento: p.valoreProvvigioneAffidamento, // Mapping nuovo campo
     numero_veicoli_affidamento: p.numeroVeicoliAffidamento,
     valore_listino_ordinato: p.valoreListinoOrdinato,
 
     stato_trattativa: p.statoTrattativa,
-    // Corrected snake_case property access to camelCase as defined in types.ts
     annotazioni_trattativa: p.annotazioniTrattativa,
     data_affidamento: p.dataAffidamento,
     stato_affidamento: p.statoAffidamento || null,
-    // Corrected snake_case property access to camelCase as defined in types.ts
     annotazioni_affidamento: p.annotazioniAffidamento,
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
@@ -113,7 +112,7 @@ export const DbService = {
       .from('nlt_agents')
       .select('*')
       .eq('email', email)
-      .eq('pin', password) // Usiamo la colonna 'pin' per la password
+      .eq('pin', password)
       .eq('is_active', true)
       .maybeSingle();
     if (error) throw error;
@@ -129,9 +128,11 @@ export const DbService = {
     if (error) throw error;
   },
 
-  getAllAgents: async (): Promise<Agent[]> => {
+  getAllAgents: async (onlyActive = false): Promise<Agent[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('nlt_agents').select('*').order('nome');
+    let query = supabase.from('nlt_agents').select('*').order('nome');
+    if (onlyActive) query = query.eq('is_active', true);
+    const { data, error } = await query;
     if (error) return [];
     return data.map(fromDbAgent);
   },
@@ -172,7 +173,8 @@ export const DbService = {
       .is('deleted_at', null)
       .order('data', { ascending: false });
     
-    if (user.isAgent && !user.isAdmin) {
+    // Solo l'Agente Standard (non admin e non team leader) vede solo le sue
+    if (user.isAgent && !user.isAdmin && !user.isTeamLeader) {
       query = query.eq('agent_id', user.id);
     }
 
@@ -187,7 +189,8 @@ export const DbService = {
 
     let resultPractices = [...practicesData];
     
-    if ((user.isAdmin || !user.isAgent) && resultPractices.length > 0) {
+    // Admin e Team Leader vedono i nomi degli agenti
+    if ((user.isAdmin || user.isTeamLeader) && resultPractices.length > 0) {
         const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
         if (agentsData) {
             const agentsMap = new Map(agentsData.map(a => [a.id, a.nome]));

@@ -39,6 +39,12 @@ export const Profile: React.FC = () => {
     }
   };
 
+  const getRoleLabel = () => {
+    if (user.isAdmin) return 'Amministratore';
+    if (user.isTeamLeader) return 'Team Leader';
+    return 'Agente';
+  };
+
   const InputStyle = "w-full border border-gray-300 bg-white text-gray-900 p-3 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all";
   const LabelStyle = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2";
 
@@ -63,7 +69,7 @@ export const Profile: React.FC = () => {
                 <div>
                     <span className={LabelStyle}>Ruolo</span>
                     <p className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold uppercase">
-                        {user.isAdmin ? 'Amministratore' : 'Agente'}
+                        {getRoleLabel()}
                     </p>
                 </div>
                 <div className="flex items-center gap-3">

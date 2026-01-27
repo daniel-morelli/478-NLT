@@ -10,11 +10,11 @@ import {
   X,
   Briefcase,
   UserCircle,
-  Calendar
+  Calendar,
+  ShieldCheck
 } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
-
-const { Link, useLocation } = ReactRouterDOM;
+// Changed from namespace import to named imports to fix type errors
+import { Link, useLocation } from 'react-router-dom';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
@@ -41,6 +41,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     );
   };
 
+  const getRoleLabel = () => {
+      if (user.isAdmin) return 'Amministratore';
+      if (user.isTeamLeader) return 'Team Leader';
+      return 'Agente';
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Mobile Sidebar Overlay */}
@@ -60,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">478 <span className="text-red-600">NLT</span></h1>
-            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.2.0</p>
+            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.3.0</p>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400">
             <X />
@@ -71,7 +77,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           <div className="mb-6 p-4 bg-gray-900 rounded-lg border border-gray-800">
             <p className="text-sm text-gray-500">Benvenuto,</p>
             <p className="font-semibold truncate text-white">{user.nome}</p>
-            <p className="text-xs text-red-500 mt-1 font-medium uppercase tracking-wider">{user.isAdmin ? 'Amministratore' : 'Agente'}</p>
+            <div className="flex items-center gap-1.5 text-[10px] text-red-500 mt-1 font-bold uppercase tracking-wider">
+               {(user.isAdmin || user.isTeamLeader) && <ShieldCheck size={12}/>}
+               {getRoleLabel()}
+            </div>
           </div>
 
           <nav className="space-y-2">
@@ -80,17 +89,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <NavItem 
                 to="/practices" 
                 icon={FileText} 
-                label={!user.isAgent ? "Pratiche" : "Le Mie Pratiche"} 
+                label={(user.isAdmin || user.isTeamLeader) ? "Pratiche" : "Le Mie Pratiche"} 
             />
 
             <NavItem to="/calendar" icon={Calendar} label="Calendario" />
 
             <NavItem to="/profile" icon={UserCircle} label="Il mio Profilo" />
             
-            {user.isAdmin && (
+            {(user.isAdmin || user.isTeamLeader) && (
               <>
-                <div className="pt-4 pb-2 px-4 text-xs font-bold text-gray-600 uppercase tracking-widest">Amministrazione</div>
-                <NavItem to="/agents" icon={Users} label="Gestione Agenti" />
+                <div className="pt-4 pb-2 px-4 text-xs font-bold text-gray-600 uppercase tracking-widest">Strumenti</div>
+                {user.isAdmin && <NavItem to="/agents" icon={Users} label="Gestione Agenti" />}
                 <NavItem to="/providers" icon={Briefcase} label="Gestione Provider" />
               </>
             )}
