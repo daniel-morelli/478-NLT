@@ -154,6 +154,7 @@ export const Dashboard: React.FC = () => {
   ].filter(d => d.value > 0), [filteredPractices]);
 
   if (loading) return <div className="text-center py-10 text-gray-500">Caricamento dati...</div>;
+  if (!user) return null;
 
   const DetailBox = ({ title, items, type, chartData }: { title: string, items: {label: string, value: number, filterVal: string}[], type: string, chartData: any[] }) => (
     <div className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full rounded-none">

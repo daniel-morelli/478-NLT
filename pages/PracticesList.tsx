@@ -150,6 +150,7 @@ export const PracticesList: React.FC = () => {
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Caricamento elenco...</div>;
+  if (!user) return null;
 
   return (
     <div className="space-y-6 pb-20">
