@@ -25,7 +25,7 @@ export const PracticesList: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState('');
-  const [localStatusFilter, setLocalStatusFilter] = useState('all');
+  const [localYearFilter, setLocalYearFilter] = useState('all');
   const [localAgentFilter, setLocalAgentFilter] = useState('all');
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export const PracticesList: React.FC = () => {
     if (saved && !searchParams.toString()) {
         const parsed = JSON.parse(saved);
         setSearch(parsed.search || '');
-        setLocalStatusFilter(parsed.status || 'all');
+        setLocalYearFilter(parsed.year || 'all');
         setLocalAgentFilter(parsed.agent || 'all');
     }
   }, []);
@@ -73,11 +73,11 @@ export const PracticesList: React.FC = () => {
        applyFilters(practices, []); 
        sessionStorage.setItem('nlt_filters', JSON.stringify({
            search,
-           status: localStatusFilter,
+           year: localYearFilter,
            agent: localAgentFilter
        }));
     }
-  }, [search, localStatusFilter, localAgentFilter]);
+  }, [search, localYearFilter, localAgentFilter]);
 
   const applyFilters = async (allPractices: Practice[], loadedReminders: Reminder[]) => {
     let res = allPractices;
@@ -103,7 +103,9 @@ export const PracticesList: React.FC = () => {
             res = res.filter(p => filteredIds.has(p.id));
         }
     } else {
-        if (localStatusFilter !== 'all') res = res.filter(p => p.statoTrattativa === localStatusFilter);
+        if (localYearFilter !== 'all') {
+            res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
+        }
         if (localAgentFilter !== 'all') res = res.filter(p => p.agentId === localAgentFilter);
     }
 
@@ -117,7 +119,7 @@ export const PracticesList: React.FC = () => {
 
   const clearDashboardFilter = () => {
       setSearchParams({});
-      setLocalStatusFilter('all');
+      setLocalYearFilter('all');
       setLocalAgentFilter('all');
       setSearch('');
       sessionStorage.removeItem('nlt_filters');
@@ -168,7 +170,7 @@ export const PracticesList: React.FC = () => {
         </Link>
       </div>
 
-      {(searchParams.get('filterType') || localStatusFilter !== 'all' || localAgentFilter !== 'all' || search) && (
+      {(searchParams.get('filterType') || localYearFilter !== 'all' || localAgentFilter !== 'all' || search) && (
           <div className="bg-black text-white p-4 flex justify-between items-center shadow-md border-l-4 border-red-600 rounded md:rounded-none">
               <div className="flex items-center gap-2">
                   <Filter size={18} className="text-red-500 flex-shrink-0"/>
@@ -196,12 +198,14 @@ export const PracticesList: React.FC = () => {
         
         <div className="flex flex-col md:flex-row gap-2">
             <select 
-                value={localStatusFilter} 
-                onChange={(e) => setLocalStatusFilter(e.target.value)}
+                value={localYearFilter} 
+                onChange={(e) => setLocalYearFilter(e.target.value)}
                 className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded md:rounded-none text-sm"
             >
-                <option value="all">Stato Trattativa</option>
-                {Object.values(DealStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                <option value="all">Filtra per Anno</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
             </select>
 
             {(user.isAdmin || user.isTeamLeader) && (
