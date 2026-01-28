@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, CreditStatus, OrderStatus, Provider, Agent, Reminder, Customer, VehicleCredit, VehicleOrder } from '../types';
-import { ArrowLeft, Save, Lock, User, History, Briefcase, ShieldCheck, ShoppingCart, Bell, Info, Search, UserPlus, Phone, Mail, AlertTriangle, X, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Provider, Agent, Reminder, Customer, VehicleCredit, VehicleOrder, PracticeType } from '../types';
+import { ArrowLeft, Save, Lock, User, History, Briefcase, ShieldCheck, ShoppingCart, Bell, Info, Search, UserPlus, Phone, Mail, AlertTriangle, X, Plus, Trash2, RefreshCw, Users, Layers, PhoneCall } from 'lucide-react';
 import { PracticeReminders } from '../components/PracticeReminders';
 import { PracticeTimeline } from '../components/PracticeTimeline';
 import { Modal } from '../components/Modal';
@@ -49,6 +49,10 @@ export const PracticeForm: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Stati per cambio agente con conferma
+  const [showAgentConfirm, setShowAgentConfirm] = useState(false);
+  const [pendingAgentId, setPendingAgentId] = useState('');
+
   // Stati per la ricerca cliente
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerResults, setShowCustomerResults] = useState(false);
@@ -57,6 +61,7 @@ export const PracticeForm: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<Practice>>({
     data: new Date().toISOString().split('T')[0],
+    tipoTrattativa: PracticeType.ORDINE,
     agentId: id ? '' : ((user?.isAdmin || user?.isTeamLeader) ? '' : user?.id),
     statoTrattativa: DealStatus.IN_CORSO,
     statoAffidamento: '',
@@ -77,6 +82,7 @@ export const PracticeForm: React.FC = () => {
     annotazioniTrattativa: '',
     annotazioniAffidamento: '',
     annotazioneOrdine: '',
+    validoRappel: '',
     customerId: ''
   });
 
@@ -100,7 +106,6 @@ export const PracticeForm: React.FC = () => {
   useEffect(() => {
     if (user && formData.agentId) {
         setLoading(true);
-        // Se l'agente cambia, ricarichiamo la lista dei clienti ESCLUSIVAMENTE di quell'agente
         DbService.getCustomers(user, formData.agentId).then(data => {
             setCustomers(data);
             setLoading(false);
@@ -166,14 +171,13 @@ export const PracticeForm: React.FC = () => {
     const { name, value } = e.target;
     
     if (name === 'agentId') {
-        // Al cambio agente Admin, resettiamo il cliente per evitare errori di anagrafica
-        setFormData(prev => ({ 
-            ...prev, 
-            agentId: value,
-            customerId: '', 
-            customerData: undefined 
-        }));
-        setCustomerSearch('');
+        if (formData.customerId) {
+            setPendingAgentId(value);
+            setShowAgentConfirm(true);
+        } else {
+            setFormData(prev => ({ ...prev, agentId: value }));
+            setCustomerSearch('');
+        }
         return;
     }
 
@@ -182,6 +186,22 @@ export const PracticeForm: React.FC = () => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const confirmAgentChange = (keepCustomer: boolean) => {
+    if (keepCustomer) {
+        setFormData(prev => ({ ...prev, agentId: pendingAgentId }));
+    } else {
+        setFormData(prev => ({ 
+            ...prev, 
+            agentId: pendingAgentId,
+            customerId: '', 
+            customerData: undefined 
+        }));
+        setCustomerSearch('');
+    }
+    setShowAgentConfirm(false);
+    setPendingAgentId('');
   };
 
   const handleCurrencyChange = (name: string, numericValue: number | undefined) => {
@@ -198,7 +218,7 @@ export const PracticeForm: React.FC = () => {
     }
 
     if (!formData.customerId) {
-        setErrorMessage("È necessario selezionare un cliente dall'anagrafica dell'agente selezionato.");
+        setErrorMessage("È necessario selezionare un cliente.");
         return;
     }
     setLoading(true);
@@ -354,6 +374,46 @@ export const PracticeForm: React.FC = () => {
     <div className="max-w-7xl mx-auto pb-24 px-4">
         <Modal isOpen={!!errorMessage} onClose={() => setErrorMessage(null)} title="Attenzione" message={errorMessage || ''} confirmLabel="Ho capito" onConfirm={() => setErrorMessage(null)} />
 
+        {showAgentConfirm && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white w-full max-w-md shadow-2xl rounded-3xl overflow-hidden border-t-4 border-red-600 flex flex-col">
+                    <div className="p-8">
+                        <div className="flex items-start gap-4 mb-6">
+                            <div className="p-3 bg-red-50 text-red-600 rounded-2xl">
+                                <AlertTriangle size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-2">Cambio Agente</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">
+                                    Hai selezionato un nuovo agente responsabile. Vuoi mantenere il cliente <strong className="text-black">"{formData.customerData?.nome}"</strong> collegato a questa pratica o resettare il campo?
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={() => confirmAgentChange(true)}
+                                className="w-full bg-black text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-black/10 flex items-center justify-center gap-2"
+                            >
+                                <Users size={16}/> Mantieni Cliente Attuale
+                            </button>
+                            <button 
+                                onClick={() => confirmAgentChange(false)}
+                                className="w-full bg-red-600 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-xl shadow-red-600/10 flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={16}/> Cambia e Resetta Cliente
+                            </button>
+                            <button 
+                                onClick={() => {setShowAgentConfirm(false); setPendingAgentId('');}}
+                                className="w-full text-gray-400 px-6 py-2 text-[10px] font-black uppercase tracking-widest hover:text-gray-900 transition-all"
+                            >
+                                Annulla Operazione
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
             <button onClick={() => navigate('/practices')} className="flex items-center text-gray-400 hover:text-red-600 transition-colors font-black text-[10px] uppercase tracking-widest">
                 <ArrowLeft className="w-4 h-4 mr-2" /> Torna all'elenco
@@ -405,6 +465,26 @@ export const PracticeForm: React.FC = () => {
                                 <Info size={16} className="text-red-600"/> DATI IDENTIFICATIVI
                             </h3>
                             
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                                <div>
+                                    <label className={LabelStyle}>Tipologia Trattativa</label>
+                                    <select name="tipoTrattativa" required value={formData.tipoTrattativa || PracticeType.ORDINE} onChange={handleChange} className={`${InputStyle} font-black uppercase border-black ring-black/5`}>
+                                        <option value={PracticeType.ORDINE}>ORDINE</option>
+                                        <option value={PracticeType.PROROGA}>PROROGA</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={LabelStyle}>Data Pratica</label>
+                                    <input type="date" name="data" required value={formData.data} onChange={handleChange} className={InputStyle} />
+                                </div>
+                                <div>
+                                    <label className={LabelStyle}>Stato Trattativa</label>
+                                    <select name="statoTrattativa" value={formData.statoTrattativa} onChange={handleChange} className={`${InputStyle} font-black text-red-600 bg-red-50/20`}>
+                                        {Object.values(DealStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 relative">
                                     <label className={LabelStyle}>
@@ -436,7 +516,18 @@ export const PracticeForm: React.FC = () => {
                                                                 <span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span>
                                                                 <span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span>
                                                             </div>
-                                                            <Briefcase size={14} className="text-gray-200" />
+                                                            <div className="flex items-center gap-2">
+                                                              {c.cell && (
+                                                                <a 
+                                                                  href={`tel:${c.cell}`} 
+                                                                  onClick={(e) => e.stopPropagation()}
+                                                                  className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"
+                                                                >
+                                                                  <PhoneCall size={14} />
+                                                                </a>
+                                                              )}
+                                                              <Briefcase size={14} className="text-gray-200" />
+                                                            </div>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -450,19 +541,32 @@ export const PracticeForm: React.FC = () => {
                                         )}
                                     </div>
                                     {formData.customerId && (
-                                        <div className="mt-2 flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg w-fit">
-                                            <ShieldCheck size={14} className="text-green-600" />
-                                            <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Anagrafica Collegata</span>
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg w-fit">
+                                              <ShieldCheck size={14} className="text-green-600" />
+                                              <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Anagrafica Collegata</span>
+                                          </div>
+                                          {formData.customerData?.cell && (
+                                            <a 
+                                              href={`tel:${formData.customerData.cell}`}
+                                              className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg w-fit hover:bg-red-700 transition-colors shadow-sm"
+                                            >
+                                              <PhoneCall size={12} />
+                                              <span className="text-[9px] font-black uppercase tracking-widest">Chiama Cliente</span>
+                                            </a>
+                                          )}
                                         </div>
                                     )}
                                 </div>
                                 <div>
-                                    <label className={LabelStyle}>Data Pratica</label>
-                                    <input type="date" name="data" required value={formData.data} onChange={handleChange} className={InputStyle} />
+                                    <label className={LabelStyle}>Provider</label>
+                                    <select name="provider" required value={formData.provider || ''} onChange={handleChange} className={InputStyle}>
+                                        <option value="">-- SELEZIONA PROVIDER --</option>
+                                        {providers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                    </select>
                                 </div>
                             </div>
 
-                            {/* Modulo Rapido Nuovo Cliente */}
                             {isAddingNewCustomer && (
                                 <div className="mt-6 p-6 bg-red-50/30 border border-red-100 rounded-3xl animate-in zoom-in-95 duration-200">
                                     <div className="flex justify-between items-center mb-6">
@@ -501,23 +605,10 @@ export const PracticeForm: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
                                 <div>
-                                    <label className={LabelStyle}>Provider</label>
-                                    <select name="provider" required value={formData.provider || ''} onChange={handleChange} className={InputStyle}>
-                                        <option value="">-- SELEZIONA PROVIDER --</option>
-                                        {providers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
                                     <label className={LabelStyle}>Mese Previsto Chiusura</label>
                                     <select name="mesePrevistoChiusura" value={formData.mesePrevistoChiusura} onChange={handleChange} className={InputStyle}>
                                         <option value="">-- SELEZIONA MESE --</option>
                                         {getMeseAnnoOptions().map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className={LabelStyle}>Stato Trattativa</label>
-                                    <select name="statoTrattativa" value={formData.statoTrattativa} onChange={handleChange} className={`${InputStyle} font-black text-red-600 bg-red-50/20`}>
-                                        {Object.values(DealStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -562,7 +653,6 @@ export const PracticeForm: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Nuova sezione veicoli analitici */}
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli Affidati</h4>
@@ -640,7 +730,7 @@ export const PracticeForm: React.FC = () => {
                             {!isOrdineEnabled && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 uppercase"><Lock size={12}/> Fase Bloccata</div>}
                         </div>
                         <div className="space-y-8">
-                            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="max-w-5va mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
                                     <label className={LabelStyle}>Stato Ordine</label>
                                     <select disabled={!isOrdineEnabled} name="statoOrdine" value={formData.statoOrdine} onChange={handleChange} className={InputStyle}>
@@ -651,7 +741,6 @@ export const PracticeForm: React.FC = () => {
                                 <div><label className={LabelStyle}>Data Firma Ordine</label><input disabled={!isOrdineEnabled} type="date" name="dataOrdine" value={formData.dataOrdine || ''} onChange={handleChange} className={InputStyle} /></div>
                             </div>
 
-                            {/* Dettaglio Veicoli Ordine */}
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center">
                                     <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli Ordinati</h4>
@@ -715,9 +804,28 @@ export const PracticeForm: React.FC = () => {
                                 <CurrencyInput label="Listino Ordinato (Aggregato) (€)" name="valoreListinoOrdinato" disabled={!isOrdineEnabled} value={formData.valoreListinoOrdinato} onChange={handleCurrencyChange} />
                                 <CurrencyInput label="Provv. Tot. Ordine (Aggregato) (€)" name="valoreProvvigioneTotale" disabled={!isOrdineEnabled} value={formData.valoreProvvigioneTotale} onChange={handleCurrencyChange} highlight={true} />
                             </div>
-                            <div className="max-w-5xl mx-auto w-full">
-                                <label className={LabelStyle}>Note sull'Ordine</label>
-                                <textarea disabled={!isOrdineEnabled} name="annotazioneOrdine" rows={4} value={formData.annotazioneOrdine || ''} onChange={handleChange} className={InputStyle} placeholder="Dettagli relativi al contratto firmato..." />
+                            <div className="max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-8">
+                                <div className="md:col-span-2">
+                                    <label className={LabelStyle}>Note sull'Ordine</label>
+                                    <textarea disabled={!isOrdineEnabled} name="annotazioneOrdine" rows={4} value={formData.annotazioneOrdine || ''} onChange={handleChange} className={InputStyle} placeholder="Dettagli relativi al contratto firmato..." />
+                                </div>
+                                {(user?.isAdmin || user?.isTeamLeader) && (
+                                    <div>
+                                        <label className={LabelStyle}>Valido per i Rappel</label>
+                                        <select 
+                                            disabled={!isOrdineEnabled} 
+                                            name="validoRappel" 
+                                            value={formData.validoRappel || ''} 
+                                            onChange={handleChange} 
+                                            className={`${InputStyle} font-black uppercase`}
+                                        >
+                                            <option value="">DA DEFINIRE</option>
+                                            <option value="SI">SI</option>
+                                            <option value="NO">NO</option>
+                                        </select>
+                                        <p className="text-[9px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">Campo riservato a Admin/TeamLeader</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

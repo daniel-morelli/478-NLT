@@ -1,5 +1,5 @@
 
-import { Agent, Practice, Provider, Reminder, Customer } from '../types';
+import { Agent, Practice, Provider, Reminder, Customer, PracticeType } from '../types';
 import { supabase } from './firebaseConfig';
 
 // --- MAPPERS ---
@@ -42,6 +42,7 @@ const fromDbPractice = (p: any): Practice => ({
   customerId: p.customer_id,
   data: p.data,
   provider: p.provider,
+  tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
   valoreListinoTrattativa: p.valore_listino_trattativa ?? 0,
@@ -52,7 +53,7 @@ const fromDbPractice = (p: any): Practice => ({
   veicoliAffidamento: p.veicoli_affidamento || [],
   valoreListinoOrdinato: p.valore_listino_ordinato ?? 0,
   statoTrattativa: p.stato_trattativa,
-  annotazioniTrattativa: p.annotazioni_trattativa ?? '',
+  annotazioniTrattativa: p.annotazioni_attiva ?? '',
   dataAffidamento: p.data_affidamento,
   statoAffidamento: p.stato_affidamento ?? '',
   annotazioniAffidamento: p.annotazioni_affidamento ?? '',
@@ -62,6 +63,7 @@ const fromDbPractice = (p: any): Practice => ({
   veicoliOrdine: p.veicoli_ordine || [],
   statoOrdine: p.stato_ordine ?? '',
   annotazioneOrdine: p.annotazione_ordine ?? '',
+  validoRappel: p.valido_rappel ?? '',
   deletedAt: p.deleted_at
 });
 
@@ -71,6 +73,7 @@ const toDbPractice = (p: Partial<Practice>) => {
     customer_id: p.customerId,
     data: p.data,
     provider: p.provider,
+    tipo_trattativa: p.tipoTrattativa,
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     valore_listino_trattativa: p.valoreListinoTrattativa,
@@ -81,19 +84,18 @@ const toDbPractice = (p: Partial<Practice>) => {
     veicoli_affidamento: p.veicoliAffidamento,
     valore_listino_ordinato: p.valoreListinoOrdinato,
     stato_trattativa: p.statoTrattativa,
-    // Fix: Using correct property name from Practice interface (camelCase)
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
     data_affidamento: p.dataAffidamento,
     stato_affidamento: p.statoAffidamento || null,
-    // Fix: Using correct property name from Practice interface (camelCase)
     annotazioni_affidamento: p.annotazioniAffidamento ?? '',
     data_ordine: p.dataOrdine,
-    // Fix: Using correct property name from Practice interface (camelCase)
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     veicoli_ordine: p.veicoliOrdine,
     stato_ordine: p.statoOrdine || null,
+    // Fix: use camelCase property names from the Practice interface
     annotazione_ordine: p.annotazioneOrdine ?? '',
+    valido_rappel: p.validoRappel || null,
     deleted_at: p.deletedAt
   };
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
@@ -106,11 +108,9 @@ export const DbService = {
     if (!supabase) return [];
     let query = supabase.from('nlt_customers').select('*').order('nome');
     
-    // Se viene specificato un targetAgentId, filtriamo per quello (Admin/TL che operano per un agente)
     if (targetAgentId) {
         query = query.eq('agent_id', targetAgentId);
     } else {
-        // Altrimenti seguiamo la logica di permessi standard
         const isPowerUser = user.isAdmin || user.isTeamLeader;
         if (!isPowerUser) {
             query = query.eq('agent_id', user.id);
@@ -260,6 +260,7 @@ export const DbService = {
 
   saveReminder: async (reminder: Partial<Reminder>): Promise<void> => {
       if (!supabase) return;
+      // Fix: changed reminder.expiration_date to reminder.expirationDate as per the Reminder interface
       const dbData = { practice_id: reminder.practiceId, expiration_date: reminder.expirationDate, description: reminder.description, status: reminder.status, feedback: reminder.feedback };
       if (reminder.id) await supabase.from('nlt_reminders').update(dbData).eq('id', reminder.id);
       else await supabase.from('nlt_reminders').insert([dbData]);

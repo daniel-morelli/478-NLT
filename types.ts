@@ -18,6 +18,11 @@ export enum OrderStatus {
   ANNULLATO = 'Annullato'
 }
 
+export enum PracticeType {
+  ORDINE = 'Ordine',
+  PROROGA = 'Proroga'
+}
+
 export interface Agent {
   id: string;
   password: string;
@@ -69,6 +74,7 @@ export interface Practice {
   data: string;
   cliente?: string;
   provider: string;
+  tipoTrattativa: PracticeType;
   numeroVeicoli: number;
   valoreTotale: number;
   
@@ -84,7 +90,7 @@ export interface Practice {
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
   numeroVeicoliAffidamento: number;
-  veicoliAffidamento: VehicleCredit[]; // Nuova lista
+  veicoliAffidamento: VehicleCredit[];
 
   dataOrdine?: string;
   numeroVeicoliOrdinati?: number;
@@ -92,7 +98,8 @@ export interface Practice {
   valoreListinoOrdinato: number;
   statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
-  veicoliOrdine: VehicleOrder[]; // Nuova lista
+  veicoliOrdine: VehicleOrder[];
+  validoRappel?: 'SI' | 'NO' | '';
 
   deletedAt?: string;
 }

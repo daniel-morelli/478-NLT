@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Customer } from '../types';
-import { User, Mail, Phone, Search, Plus, X, Save, Edit3, Briefcase } from 'lucide-react';
+import { User, Mail, Phone, Search, Plus, X, Save, Edit3, Briefcase, PhoneCall } from 'lucide-react';
 import { Modal } from '../components/Modal';
 
 export const CustomersList: React.FC = () => {
@@ -83,11 +83,30 @@ export const CustomersList: React.FC = () => {
                         <div className="bg-red-50 p-3 rounded-2xl group-hover:bg-red-600 group-hover:text-white transition-colors">
                             <Briefcase size={24} />
                         </div>
-                        <button onClick={() => {setFormCustomer(c); setIsModalOpen(true);}} className="text-gray-300 hover:text-red-600 transition-colors">
-                            <Edit3 size={18} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => {setFormCustomer(c); setIsModalOpen(true);}} className="text-gray-300 hover:text-black transition-colors p-1">
+                              <Edit3 size={18} />
+                          </button>
+                        </div>
                     </div>
-                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4 group-hover:text-red-600 transition-colors truncate">{c.nome}</h3>
+                    
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight group-hover:text-red-600 transition-colors truncate flex-1">{c.nome}</h3>
+                      {c.cell ? (
+                        <a 
+                          href={`tel:${c.cell}`} 
+                          title={`Chiama ${c.nome}`}
+                          className="bg-red-50 text-red-600 p-2.5 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                        >
+                          <PhoneCall size={18} />
+                        </a>
+                      ) : (
+                        <div className="text-gray-200 p-2.5 rounded-xl" title="Nessun numero salvato">
+                          <PhoneCall size={18} />
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-3">
                         <div className="flex items-center gap-3 text-gray-500">
                             <Mail size={14} className="text-red-600" />

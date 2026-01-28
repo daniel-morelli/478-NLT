@@ -2,10 +2,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider } from '../types';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-// Fixed: Added missing icon imports (ShieldCheck, ShoppingCart)
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers } from 'lucide-react';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -78,8 +77,6 @@ export const PracticesList: React.FC = () => {
             if (filterType === 'statoTrattativa') setLocalDealFilter(filterValue || 'all');
             if (filterType === 'statoAffidamento') setLocalCreditFilter(filterValue || 'all');
             if (filterType === 'statoOrdine') setLocalOrderFilter(filterValue || 'all');
-
-            // Applichiamo i filtri (applyFilters verrà triggerato dagli useEffect successivi)
         } catch (e) {
             console.error(e);
         } finally {
@@ -177,6 +174,12 @@ export const PracticesList: React.FC = () => {
     if (status === OrderStatus.NON_INVIATO) return { className: `${base} bg-slate-50 text-slate-500 border-slate-200` };
     if (status === OrderStatus.ANNULLATO) return { className: `${base} bg-rose-50 text-rose-700 border-rose-200` };
     return { className: `${base} bg-white text-gray-700 border-gray-200` };
+  };
+
+  const getTypeBadgeStyles = (type: PracticeType) => {
+    const base = "inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all duration-200";
+    if (type === PracticeType.PROROGA) return `${base} bg-blue-50 text-blue-700 border-blue-200`;
+    return `${base} bg-black text-white border-black`;
   };
 
   const StatusBadge = ({ status, label }: { status: string, label?: string }) => {
@@ -327,11 +330,14 @@ export const PracticesList: React.FC = () => {
                 <div className="relative z-10">
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
-                             {(user?.isAdmin || user?.isTeamLeader) && (
-                                <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase mb-1 tracking-widest">
-                                    <User size={10} /> {practice.agentName?.split(' ')[0]}
-                                </div>
-                             )}
+                             <div className="flex items-center gap-2 mb-2">
+                                <span className={getTypeBadgeStyles(practice.tipoTrattativa)}>{practice.tipoTrattativa}</span>
+                                {(user?.isAdmin || user?.isTeamLeader) && (
+                                    <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase tracking-widest">
+                                        <User size={10} /> {practice.agentName?.split(' ')[0]}
+                                    </div>
+                                )}
+                             </div>
                             <h3 className="font-black text-lg text-gray-900 leading-tight group-hover:text-red-600 transition-colors uppercase tracking-tight">{practice.customerData?.nome}</h3>
                             <div className="flex flex-wrap items-center gap-3 mt-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                 <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(practice.data).toLocaleDateString()}</span>
@@ -359,6 +365,7 @@ export const PracticesList: React.FC = () => {
           <table className="w-full text-left">
             <thead className="bg-black text-white">
               <tr>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Tipo</th>
                 {(user?.isAdmin || user?.isTeamLeader) && (
                     <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
                 )}
@@ -376,6 +383,9 @@ export const PracticesList: React.FC = () => {
                   onClick={() => navigate(`/practices/${practice.id}`)}
                   className="hover:bg-red-50/20 transition-all cursor-pointer group"
                 >
+                  <td className="px-8 py-5">
+                    <span className={getTypeBadgeStyles(practice.tipoTrattativa)}>{practice.tipoTrattativa}</span>
+                  </td>
                   {(user?.isAdmin || user?.isTeamLeader) && (
                       <td className="px-8 py-5">
                           <span className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">{practice.agentName?.toUpperCase()}</span>
