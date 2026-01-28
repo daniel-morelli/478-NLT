@@ -42,6 +42,7 @@ const fromDbPractice = (p: any): Practice => ({
   customerId: p.customer_id,
   data: p.data,
   provider: p.provider,
+  // FIX: corrected key from tipo_trattativa to tipoTrattativa to match Practice interface
   tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
@@ -64,6 +65,7 @@ const fromDbPractice = (p: any): Practice => ({
   statoOrdine: p.stato_ordine ?? '',
   annotazioneOrdine: p.annotazione_ordine ?? '',
   validoRappel: p.valido_rappel ?? '',
+  isLocked: p.is_locked ?? false,
   deletedAt: p.deleted_at
 });
 
@@ -77,7 +79,7 @@ const toDbPractice = (p: Partial<Practice>) => {
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     valore_listino_trattativa: p.valoreListinoTrattativa,
-    mese_previsto_chiusura: p.mesePrevistoChiusura,
+    mese_previsto_chiusura: p.mese_previsto_chiusura,
     valore_listino_affidamento: p.valoreListinoAffidamento,
     valore_provvigione_affidamento: p.valoreProvvigioneAffidamento,
     numero_veicoli_affidamento: p.numeroVeicoliAffidamento,
@@ -86,16 +88,18 @@ const toDbPractice = (p: Partial<Practice>) => {
     stato_trattativa: p.statoTrattativa,
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
     data_affidamento: p.dataAffidamento,
+    // FIX: Using camelCase property statoAffidamento from Practice interface instead of snake_case
     stato_affidamento: p.statoAffidamento || null,
     annotazioni_affidamento: p.annotazioniAffidamento ?? '',
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     veicoli_ordine: p.veicoliOrdine,
+    // FIX: Using camelCase property statoOrdine from Practice interface instead of snake_case
     stato_ordine: p.statoOrdine || null,
-    // Fix: use camelCase property names from the Practice interface
-    annotazione_ordine: p.annotazioneOrdine ?? '',
+    annotazione_ordine: p.annotazione_ordine ?? '',
     valido_rappel: p.validoRappel || null,
+    is_locked: p.isLocked ?? false,
     deleted_at: p.deletedAt
   };
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
@@ -260,7 +264,6 @@ export const DbService = {
 
   saveReminder: async (reminder: Partial<Reminder>): Promise<void> => {
       if (!supabase) return;
-      // Fix: changed reminder.expiration_date to reminder.expirationDate as per the Reminder interface
       const dbData = { practice_id: reminder.practiceId, expiration_date: reminder.expirationDate, description: reminder.description, status: reminder.status, feedback: reminder.feedback };
       if (reminder.id) await supabase.from('nlt_reminders').update(dbData).eq('id', reminder.id);
       else await supabase.from('nlt_reminders').insert([dbData]);

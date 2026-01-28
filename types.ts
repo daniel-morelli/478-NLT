@@ -100,6 +100,7 @@ export interface Practice {
   annotazioneOrdine: string;
   veicoliOrdine: VehicleOrder[];
   validoRappel?: 'SI' | 'NO' | '';
+  isLocked?: boolean;
 
   deletedAt?: string;
 }

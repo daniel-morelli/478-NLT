@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw } from 'lucide-react';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -176,10 +176,19 @@ export const PracticesList: React.FC = () => {
     return { className: `${base} bg-white text-gray-700 border-gray-200` };
   };
 
-  const getTypeBadgeStyles = (type: PracticeType) => {
-    const base = "inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all duration-200";
-    if (type === PracticeType.PROROGA) return `${base} bg-blue-50 text-blue-700 border-blue-200`;
-    return `${base} bg-black text-white border-black`;
+  const TypeIcon = ({ type }: { type: PracticeType }) => {
+    if (type === PracticeType.PROROGA) {
+        return (
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-100" title="PROROGA">
+                <RefreshCw size={14} />
+            </div>
+        );
+    }
+    return (
+        <div className="p-2 bg-gray-900 text-white rounded-lg border border-black" title="ORDINE">
+            <ShoppingCart size={14} />
+        </div>
+    );
   };
 
   const StatusBadge = ({ status, label }: { status: string, label?: string }) => {
@@ -331,10 +340,10 @@ export const PracticesList: React.FC = () => {
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
                              <div className="flex items-center gap-2 mb-2">
-                                <span className={getTypeBadgeStyles(practice.tipoTrattativa)}>{practice.tipoTrattativa}</span>
+                                <TypeIcon type={practice.tipoTrattativa} />
                                 {(user?.isAdmin || user?.isTeamLeader) && (
                                     <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase tracking-widest">
-                                        <User size={10} /> {practice.agentName?.split(' ')[0]}
+                                        <User size={10} /> {practice.agentName}
                                     </div>
                                 )}
                              </div>
@@ -362,18 +371,18 @@ export const PracticesList: React.FC = () => {
       {/* Desktop ListView */}
       <div className="hidden md:block bg-white shadow-xl border border-gray-100 overflow-hidden rounded-[2.5rem]">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left table-fixed">
             <thead className="bg-black text-white">
               <tr>
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Tipo</th>
+                <th className="w-16 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Tipo</th>
                 {(user?.isAdmin || user?.isTeamLeader) && (
-                    <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
+                    <th className="w-48 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
                 )}
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
-                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
+                <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
+                <th className="w-40 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>
+                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
+                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
+                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -383,22 +392,26 @@ export const PracticesList: React.FC = () => {
                   onClick={() => navigate(`/practices/${practice.id}`)}
                   className="hover:bg-red-50/20 transition-all cursor-pointer group"
                 >
-                  <td className="px-8 py-5">
-                    <span className={getTypeBadgeStyles(practice.tipoTrattativa)}>{practice.tipoTrattativa}</span>
+                  <td className="px-6 py-5 text-center">
+                    <div className="flex justify-center">
+                        <TypeIcon type={practice.tipoTrattativa} />
+                    </div>
                   </td>
                   {(user?.isAdmin || user?.isTeamLeader) && (
-                      <td className="px-8 py-5">
-                          <span className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">{practice.agentName?.toUpperCase()}</span>
+                      <td className="px-6 py-5">
+                          <div className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block max-w-full truncate">
+                            {practice.agentName}
+                          </div>
                       </td>
                   )}
-                  <td className="px-8 py-5">
-                    <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm">{practice.customerData?.nome}</div>
-                    <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
+                  <td className="px-6 py-5 overflow-hidden">
+                    <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">{practice.customerData?.nome}</div>
+                    <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5 truncate">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
                   </td>
-                  <td className="px-8 py-5 text-right font-black text-gray-900 text-sm tabular-nums">{formatIT(practice.valoreTotale)}</td>
-                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
-                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
-                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
+                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap">{formatIT(practice.valoreTotale)}</td>
+                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
+                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
+                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
                 </tr>
               ))}
             </tbody>
