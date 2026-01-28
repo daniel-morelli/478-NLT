@@ -11,9 +11,9 @@ import {
   Briefcase,
   UserCircle,
   Calendar,
-  ShieldCheck
+  ShieldCheck,
+  Users2
 } from 'lucide-react';
-// Changed from namespace import to named imports to fix type errors
 import { Link, useLocation } from 'react-router-dom';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -49,15 +49,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-20 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-30 w-64 bg-black text-white transform transition-transform duration-200 ease-in-out
         md:relative md:translate-x-0 border-r border-gray-800
@@ -66,11 +61,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="p-6 border-b border-gray-800 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">478 <span className="text-red-600">NLT</span></h1>
-            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.3.0</p>
+            <p className="text-xs text-gray-500 mt-1">Gestione Pratiche v1.4.0</p>
           </div>
-          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400">
-            <X />
-          </button>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-gray-400"><X /></button>
         </div>
 
         <div className="p-4">
@@ -85,15 +78,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
           <nav className="space-y-2">
             <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-            
-            <NavItem 
-                to="/practices" 
-                icon={FileText} 
-                label={(user.isAdmin || user.isTeamLeader) ? "Pratiche" : "Le Mie Pratiche"} 
-            />
-
+            <NavItem to="/practices" icon={FileText} label={(user.isAdmin || user.isTeamLeader) ? "Pratiche" : "Le Mie Pratiche"} />
+            <NavItem to="/customers" icon={Users2} label="Anagrafica Clienti" />
             <NavItem to="/calendar" icon={Calendar} label="Calendario" />
-
             <NavItem to="/profile" icon={UserCircle} label="Il mio Profilo" />
             
             {(user.isAdmin || user.isTeamLeader) && (
@@ -107,28 +94,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800 bg-black">
-          <button
-            onClick={logout}
-            className="flex items-center gap-3 w-full px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-900 rounded-lg transition-colors"
-          >
+          <button onClick={logout} className="flex items-center gap-3 w-full px-4 py-3 text-gray-400 hover:text-white hover:bg-gray-900 rounded-lg transition-colors">
             <LogOut size={20} />
             <span>Esci</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 overflow-y-auto w-full bg-gray-50">
         <div className="md:hidden bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-10 border-b border-gray-200">
           <h1 className="font-bold text-gray-900">478 <span className="text-red-600">NLT</span></h1>
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-600">
-            <Menu />
-          </button>
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-gray-600"><Menu /></button>
         </div>
-        
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
-          {children}
-        </div>
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">{children}</div>
       </main>
     </div>
   );

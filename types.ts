@@ -26,7 +26,7 @@ export interface Agent {
   cell: string;
   isAgent: boolean;
   isAdmin: boolean;
-  isTeamLeader: boolean; // Nuovo ruolo
+  isTeamLeader: boolean;
   isActive: boolean;
 }
 
@@ -36,12 +36,38 @@ export interface Provider {
   isActive: boolean;
 }
 
+export interface Customer {
+  id: string;
+  nome: string;
+  email: string;
+  cell: string;
+  agentId: string;
+  createdAt: string;
+}
+
+export interface VehicleCredit {
+  id: string;
+  marca: string;
+  modello: string;
+  valoreListino: number;
+  provvigione: number;
+}
+
+export interface VehicleOrder extends VehicleCredit {
+  durataMesi: number;
+  km: number;
+  anticipo: number;
+  dataConsegna: string;
+}
+
 export interface Practice {
   id: string;
   agentId: string;
   agentName?: string;
+  customerId: string;
+  customerData?: Customer;
   data: string;
-  cliente: string;
+  cliente?: string;
   provider: string;
   numeroVeicoli: number;
   valoreTotale: number;
@@ -54,10 +80,11 @@ export interface Practice {
   annotazioniTrattativa: string;
 
   dataAffidamento?: string;
-  valoreProvvigioneAffidamento?: number; // Nuova Provvigione Affidamento
+  valoreProvvigioneAffidamento?: number;
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
   numeroVeicoliAffidamento: number;
+  veicoliAffidamento: VehicleCredit[]; // Nuova lista
 
   dataOrdine?: string;
   numeroVeicoliOrdinati?: number;
@@ -65,6 +92,7 @@ export interface Practice {
   valoreListinoOrdinato: number;
   statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
+  veicoliOrdine: VehicleOrder[]; // Nuova lista
 
   deletedAt?: string;
 }

@@ -1,6 +1,5 @@
 
 import React from 'react';
-// Changed from namespace import to named imports to fix type errors
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
@@ -9,6 +8,7 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { PracticesList } from './pages/PracticesList';
 import { PracticeForm } from './pages/PracticeForm';
+import { CustomersList } from './pages/CustomersList';
 import { AdminAgents } from './pages/AdminAgents';
 import { AdminProviders } from './pages/AdminProviders';
 import { Profile } from './pages/Profile';
@@ -28,53 +28,15 @@ const AppRoutes = () => {
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
             <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
             
-            <Route path="/" element={
-                <ProtectedRoute>
-                    <Dashboard />
-                </ProtectedRoute>
-            } />
-            
-            <Route path="/practices" element={
-                <ProtectedRoute>
-                    <PracticesList />
-                </ProtectedRoute>
-            } />
-            
-            <Route path="/practices/new" element={
-                <ProtectedRoute>
-                    <PracticeForm />
-                </ProtectedRoute>
-            } />
-            
-            <Route path="/practices/:id" element={
-                <ProtectedRoute>
-                    <PracticeForm />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/calendar" element={
-                <ProtectedRoute>
-                    <CalendarPage />
-                </ProtectedRoute>
-            } />
-
-            <Route path="/profile" element={
-                <ProtectedRoute>
-                    <Profile />
-                </ProtectedRoute>
-            } />
-            
-            <Route path="/agents" element={
-                <ProtectedRoute>
-                    <AdminAgents />
-                </ProtectedRoute>
-            } />
-            
-            <Route path="/providers" element={
-                <ProtectedRoute>
-                    <AdminProviders />
-                </ProtectedRoute>
-            } />
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/practices" element={<ProtectedRoute><PracticesList /></ProtectedRoute>} />
+            <Route path="/practices/new" element={<ProtectedRoute><PracticeForm /></ProtectedRoute>} />
+            <Route path="/practices/:id" element={<ProtectedRoute><PracticeForm /></ProtectedRoute>} />
+            <Route path="/customers" element={<ProtectedRoute><CustomersList /></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
+            <Route path="/providers" element={<ProtectedRoute><AdminProviders /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

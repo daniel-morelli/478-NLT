@@ -1,10 +1,11 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent } from '../types';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase } from 'lucide-react';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider } from '../types';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+// Fixed: Added missing icon imports (ShieldCheck, ShoppingCart)
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart } from 'lucide-react';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -17,111 +18,149 @@ const formatIT = (val: number | undefined): string => {
 
 export const PracticesList: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
   const [filtered, setFiltered] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stati Filtri
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
   const [localYearFilter, setLocalYearFilter] = useState('all');
   const [localAgentFilter, setLocalAgentFilter] = useState('all');
+  const [localProviderFilter, setLocalProviderFilter] = useState('all');
+  const [localDealFilter, setLocalDealFilter] = useState('all');
+  const [localCreditFilter, setLocalCreditFilter] = useState('all');
+  const [localOrderFilter, setLocalOrderFilter] = useState('all');
 
+  // Caricamento iniziale e ripristino filtri salvati
   useEffect(() => {
-    const saved = sessionStorage.getItem('nlt_filters');
+    const saved = sessionStorage.getItem('nlt_filters_v2');
     if (saved && !searchParams.toString()) {
         const parsed = JSON.parse(saved);
         setSearch(parsed.search || '');
         setLocalYearFilter(parsed.year || 'all');
         setLocalAgentFilter(parsed.agent || 'all');
+        setLocalProviderFilter(parsed.provider || 'all');
+        setLocalDealFilter(parsed.deal || 'all');
+        setLocalCreditFilter(parsed.credit || 'all');
+        setLocalOrderFilter(parsed.order || 'all');
     }
   }, []);
 
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
-        const data = await DbService.getPractices(user);
-        setPractices(data);
-        
-        if (user.isAdmin || user.isTeamLeader) {
-            const agentsData = await DbService.getAllAgents(true);
-            setAgents(agentsData.filter(a => a.isAgent));
+        setLoading(true);
+        try {
+            const [practicesData, providersData] = await Promise.all([
+                DbService.getPractices(user),
+                DbService.getAllProviders(false)
+            ]);
+            
+            setPractices(practicesData);
+            setProviders(providersData);
+            
+            if (user.isAdmin || user.isTeamLeader) {
+                const agentsData = await DbService.getAllAgents(true);
+                setAgents(agentsData.filter(a => a.isAgent));
+            }
+
+            // Parametri dalla Dashboard
+            const filterType = searchParams.get('filterType');
+            const filterValue = searchParams.get('filterValue');
+            const agentIdParam = searchParams.get('agentId');
+
+            if (agentIdParam) setLocalAgentFilter(agentIdParam);
+            if (filterType === 'statoTrattativa') setLocalDealFilter(filterValue || 'all');
+            if (filterType === 'statoAffidamento') setLocalCreditFilter(filterValue || 'all');
+            if (filterType === 'statoOrdine') setLocalOrderFilter(filterValue || 'all');
+
+            // Applichiamo i filtri (applyFilters verrà triggerato dagli useEffect successivi)
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
         }
-
-        const filterType = searchParams.get('filterType');
-        const filterValue = searchParams.get('filterValue');
-        const agentIdParam = searchParams.get('agentId');
-
-        if (agentIdParam) setLocalAgentFilter(agentIdParam);
-
-        if (filterType === 'reminder') {
-            const pIds = data.map(p => p.id);
-            const reminders = await DbService.getRemindersForPractices(pIds);
-            applyFilters(data, reminders);
-        } else {
-            applyFilters(data, []);
-        }
-        setLoading(false);
       };
       fetchData();
     }
-  }, [user, searchParams]);
+  }, [user]);
 
+  // Trigger filtraggio e salvataggio
   useEffect(() => {
     if (!loading) {
-       applyFilters(practices, []); 
-       sessionStorage.setItem('nlt_filters', JSON.stringify({
+       applyFilters(); 
+       sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
            search,
            year: localYearFilter,
-           agent: localAgentFilter
+           agent: localAgentFilter,
+           provider: localProviderFilter,
+           deal: localDealFilter,
+           credit: localCreditFilter,
+           order: localOrderFilter
        }));
     }
-  }, [search, localYearFilter, localAgentFilter]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, practices, loading]);
 
-  const applyFilters = async (allPractices: Practice[], loadedReminders: Reminder[]) => {
-    let res = allPractices;
-    const filterType = searchParams.get('filterType');
-    const filterValue = searchParams.get('filterValue');
+  const applyFilters = () => {
+    let res = [...practices];
 
-    if (filterType && filterValue) {
-        if (filterType === 'statoTrattativa') res = res.filter(p => p.statoTrattativa === filterValue);
-        else if (filterType === 'statoAffidamento') res = res.filter(p => p.statoAffidamento === filterValue);
-        else if (filterType === 'statoOrdine') res = res.filter(p => p.statoOrdine === filterValue);
-        else if (filterType === 'reminder') {
-            let currentReminders = loadedReminders;
-            if (currentReminders.length === 0 && practices.length > 0) {
-                 const pIds = allPractices.map(p => p.id);
-                 currentReminders = await DbService.getRemindersForPractices(pIds);
-            }
-            const now = new Date();
-            const filteredIds = new Set(
-                currentReminders
-                    .filter(r => r.status === 'aperto' && (filterValue === 'future' ? new Date(r.expirationDate) >= now : new Date(r.expirationDate) < now))
-                    .map(r => r.practiceId)
-            );
-            res = res.filter(p => filteredIds.has(p.id));
-        }
-    } else {
-        if (localYearFilter !== 'all') {
-            res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
-        }
-        if (localAgentFilter !== 'all') res = res.filter(p => p.agentId === localAgentFilter);
-    }
-
+    // Ricerca Testuale
     if (search) {
       const s = search.toLowerCase();
-      res = res.filter(p => p.cliente.toLowerCase().includes(s) || p.provider.toLowerCase().includes(s));
+      res = res.filter(p => (
+          p.customerData?.nome?.toLowerCase().includes(s) || 
+          p.provider.toLowerCase().includes(s)
+      ));
+    }
+
+    // Filtri a tendina
+    if (localYearFilter !== 'all') {
+        res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
+    }
+    if (localAgentFilter !== 'all') {
+        res = res.filter(p => p.agentId === localAgentFilter);
+    }
+    if (localProviderFilter !== 'all') {
+        res = res.filter(p => p.provider === localProviderFilter);
+    }
+    if (localDealFilter !== 'all') {
+        res = res.filter(p => p.statoTrattativa === localDealFilter);
+    }
+    if (localCreditFilter !== 'all') {
+        res = res.filter(p => p.statoAffidamento === localCreditFilter);
+    }
+    if (localOrderFilter !== 'all') {
+        res = res.filter(p => p.statoOrdine === localOrderFilter);
     }
 
     setFiltered(res);
   };
 
-  const clearDashboardFilter = () => {
-      setSearchParams({});
-      setLocalYearFilter('all');
-      setLocalAgentFilter('all');
-      setSearch('');
-      sessionStorage.removeItem('nlt_filters');
+  const resetFilters = () => {
+    setSearch('');
+    setLocalYearFilter('all');
+    setLocalAgentFilter('all');
+    setLocalProviderFilter('all');
+    setLocalDealFilter('all');
+    setLocalCreditFilter('all');
+    setLocalOrderFilter('all');
+    setSearchParams({});
+  };
+
+  const countActiveFilters = () => {
+      let count = 0;
+      if (localYearFilter !== 'all') count++;
+      if (localAgentFilter !== 'all') count++;
+      if (localProviderFilter !== 'all') count++;
+      if (localDealFilter !== 'all') count++;
+      if (localCreditFilter !== 'all') count++;
+      if (localOrderFilter !== 'all') count++;
+      return count;
   };
 
   const getStatusStyles = (status: string) => {
@@ -150,6 +189,22 @@ export const PracticesList: React.FC = () => {
     );
   };
 
+  const FilterSelect = ({ label, value, onChange, options, icon: Icon }: { label: string, value: string, onChange: (v: string) => void, options: {val: string, label: string}[], icon?: any }) => (
+    <div className="space-y-1.5 flex-1 min-w-[180px]">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+            {Icon && <Icon size={12} />} {label}
+        </label>
+        <select 
+            value={value} 
+            onChange={(e) => onChange(e.target.value)}
+            className="w-full bg-white border border-gray-200 px-3 py-2.5 text-xs font-bold uppercase tracking-tight outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all rounded-xl shadow-sm text-gray-900"
+        >
+            <option value="all">TUTTI</option>
+            {options.map(opt => <option key={opt.val} value={opt.val}>{opt.label.toUpperCase()}</option>)}
+        </select>
+    </div>
+  );
+
   if (loading) return <div className="p-8 text-center text-gray-500">Caricamento elenco...</div>;
   if (!user) return null;
 
@@ -157,142 +212,183 @@ export const PracticesList: React.FC = () => {
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">Elenco Pratiche</h2>
-            <p className="text-sm text-gray-500">Gestione operativa</p>
+            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">Elenco <span className="text-red-600">Pratiche</span></h2>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Gestione operativa centralizzata</p>
         </div>
         <Link 
           to="/practices/new" 
-          className="w-full md:w-auto text-center flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 hover:bg-red-700 shadow-lg shadow-red-900/20 transition-all transform active:scale-95 font-bold uppercase text-sm tracking-wide rounded-2xl"
+          className="w-full md:w-auto text-center flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
         >
           <Plus size={18} />
           Nuova Pratica
         </Link>
       </div>
 
-      {(searchParams.get('filterType') || localYearFilter !== 'all' || localAgentFilter !== 'all' || search) && (
-          <div className="bg-black text-white p-4 flex justify-between items-center shadow-md border-l-4 border-red-600 rounded-2xl">
-              <div className="flex items-center gap-2">
-                  <Filter size={18} className="text-red-500 flex-shrink-0"/>
-                  <div className="font-bold uppercase tracking-wide text-xs md:text-sm">
-                      Filtri Attivi
-                  </div>
-              </div>
-              <button onClick={clearDashboardFilter} className="text-gray-400 hover:text-white flex items-center gap-1 text-xs font-bold uppercase whitespace-nowrap ml-4">
-                  <X size={14}/> Rimuovi Filtri
-              </button>
-          </div>
-      )}
+      {/* Control Bar */}
+      <div className="bg-white p-4 shadow-xl border border-gray-100 rounded-3xl space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="flex-1 w-full relative group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-red-600 transition-colors w-5 h-5" />
+                <input 
+                    type="text" 
+                    placeholder="Cerca cliente, partita iva o provider..." 
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 border border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded-2xl text-sm font-semibold transition-all shadow-inner"
+                />
+            </div>
 
-      <div className="bg-white p-4 shadow-sm border border-gray-200 flex flex-col lg:flex-row gap-4 rounded-2xl">
-        <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input 
-                type="text" 
-                placeholder="Cerca cliente o provider..." 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded-xl text-sm"
-            />
-        </div>
-        
-        <div className="flex flex-col md:flex-row gap-2">
-            <select 
-                value={localYearFilter} 
-                onChange={(e) => setLocalYearFilter(e.target.value)}
-                className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded-xl text-sm"
-            >
-                <option value="all">Filtra per Anno</option>
-                <option value="2024">2024</option>
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-            </select>
-
-            {(user.isAdmin || user.isTeamLeader) && (
-                <select 
-                    value={localAgentFilter} 
-                    onChange={(e) => setLocalAgentFilter(e.target.value)}
-                    className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded-xl text-sm"
-                >
-                    <option value="all">Tutti gli Agenti</option>
-                    {agents.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                </select>
+            {(user?.isAdmin || user?.isTeamLeader) && (
+                <div className="w-full lg:w-72 relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-4 h-4" />
+                    <select 
+                        value={localAgentFilter}
+                        onChange={(e) => setLocalAgentFilter(e.target.value)}
+                        className="w-full pl-10 pr-4 py-4 bg-gray-900 text-white text-xs font-black uppercase tracking-widest border-none outline-none rounded-2xl cursor-pointer hover:bg-black transition-colors"
+                    >
+                        <option value="all">TUTTI GLI AGENTI</option>
+                        {agents.map(a => <option key={a.id} value={a.id}>{a.nome.toUpperCase()}</option>)}
+                    </select>
+                </div>
             )}
+
+            <div className="flex gap-2 w-full lg:w-auto">
+                <button 
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${showFilters || countActiveFilters() > 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                >
+                    <Filter size={16} />
+                    {showFilters ? 'Chiudi Filtri' : 'Filtri Avanzati'}
+                    {countActiveFilters() > 0 && <span className="bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[8px]">{countActiveFilters()}</span>}
+                </button>
+                {countActiveFilters() > 0 && (
+                    <button 
+                        onClick={resetFilters}
+                        className="p-4 bg-gray-50 text-gray-400 hover:text-red-600 rounded-2xl transition-colors border border-gray-100"
+                        title="Resetta Filtri"
+                    >
+                        <RotateCcw size={18} />
+                    </button>
+                )}
+            </div>
         </div>
+
+        {/* Collapsible Filters */}
+        {showFilters && (
+            <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 animate-in slide-in-from-top-4 duration-300">
+                <FilterSelect 
+                    label="Stato Trattativa" 
+                    icon={Briefcase}
+                    value={localDealFilter} 
+                    onChange={setLocalDealFilter}
+                    options={Object.values(DealStatus).map(v => ({val: v, label: v}))}
+                />
+                <FilterSelect 
+                    label="Stato Affidamento" 
+                    icon={ShieldCheck}
+                    value={localCreditFilter} 
+                    onChange={setLocalCreditFilter}
+                    options={Object.values(CreditStatus).map(v => ({val: v, label: v}))}
+                />
+                <FilterSelect 
+                    label="Stato Ordine" 
+                    icon={ShoppingCart}
+                    value={localOrderFilter} 
+                    onChange={setLocalOrderFilter}
+                    options={Object.values(OrderStatus).map(v => ({val: v, label: v}))}
+                />
+                <FilterSelect 
+                    label="Fornitore Provider" 
+                    icon={Briefcase}
+                    value={localProviderFilter} 
+                    onChange={setLocalProviderFilter}
+                    options={providers.map(p => ({val: p.name, label: p.name}))}
+                />
+                <FilterSelect 
+                    label="Anno Pratica" 
+                    icon={Calendar}
+                    value={localYearFilter} 
+                    onChange={setLocalYearFilter}
+                    options={[2024, 2025, 2026].map(y => ({val: y.toString(), label: y.toString()}))}
+                />
+            </div>
+        )}
       </div>
 
+      {/* Mobile ListView */}
       <div className="md:hidden space-y-4">
         {filtered.map(practice => (
-            <div key={practice.id} className="bg-white border border-gray-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                         {(user?.isAdmin || user?.isTeamLeader) && (
-                            <div className="flex items-center gap-1 text-[10px] text-red-600 font-black uppercase mb-1">
-                                <User size={10} /> {practice.agentName}
+            <div 
+              key={practice.id} 
+              onClick={() => navigate(`/practices/${practice.id}`)}
+              className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer group active:scale-[0.98] relative overflow-hidden"
+            >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-50 transition-colors z-0"></div>
+                <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                             {(user?.isAdmin || user?.isTeamLeader) && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase mb-1 tracking-widest">
+                                    <User size={10} /> {practice.agentName?.split(' ')[0]}
+                                </div>
+                             )}
+                            <h3 className="font-black text-lg text-gray-900 leading-tight group-hover:text-red-600 transition-colors uppercase tracking-tight">{practice.customerData?.nome}</h3>
+                            <div className="flex flex-wrap items-center gap-3 mt-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(practice.data).toLocaleDateString()}</span>
+                                <span className="flex items-center gap-1"><Briefcase size={12}/> {practice.provider}</span>
                             </div>
-                         )}
-                        <h3 className="font-bold text-lg text-gray-900 leading-tight">{practice.cliente}</h3>
-                        <div className="flex flex-wrap items-center gap-3 mt-1">
-                            <span className="text-xs text-gray-500 flex items-center gap-1"><Calendar size={12}/> {new Date(practice.data).toLocaleDateString()}</span>
-                            <span className="text-xs text-gray-500 flex items-center gap-1"><Briefcase size={12}/> {practice.provider}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-sm font-black text-gray-900 block">{formatIT(practice.valoreTotale)}</span>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <div className="text-[10px] font-bold text-gray-400 uppercase">Val. Totale</div>
-                        <div className="text-sm font-bold text-gray-900">{formatIT(practice.valoreTotale)}</div>
+                    
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-gray-50 mt-4">
+                        <StatusBadge label="Trattativa" status={practice.statoTrattativa} />
+                        <StatusBadge label="Affidamento" status={practice.statoAffidamento} />
+                        <StatusBadge label="Ordine" status={practice.statoOrdine} />
                     </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-y-4 gap-x-2 mb-4">
-                    <StatusBadge label="Trattativa" status={practice.statoTrattativa} />
-                    <StatusBadge label="Affidamento" status={practice.statoAffidamento} />
-                    <StatusBadge label="Ordine" status={practice.statoOrdine} />
-                </div>
-
-                <Link 
-                  to={`/practices/${practice.id}`}
-                  className="flex items-center justify-center gap-2 w-full bg-gray-50 text-gray-700 py-3 border border-gray-200 rounded-xl font-bold uppercase text-xs hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
-                >
-                  Gestisci Pratica <ArrowRight size={14} />
-                </Link>
             </div>
         ))}
       </div>
 
-      <div className="hidden md:block bg-white shadow-sm border border-gray-200 overflow-hidden rounded-2xl">
+      {/* Desktop ListView */}
+      <div className="hidden md:block bg-white shadow-xl border border-gray-100 overflow-hidden rounded-[2.5rem]">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-black text-white">
               <tr>
                 {(user?.isAdmin || user?.isTeamLeader) && (
-                    <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300">Agente</th>
+                    <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
                 )}
-                <th className="px-6 py-4 font-bold uppercase text-xs tracking-wider text-gray-300">Cliente</th>
-                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-right">Prov. Totale</th>
-                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-center">Trattativa</th>
-                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-center">Affidamento</th>
-                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-center">Ordine</th>
-                <th className="px-6 py-4 font-bold uppercase text-[11px] tracking-wider text-gray-300 text-right">Azioni</th>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
+                <th className="px-8 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {filtered.map((practice) => (
-                <tr key={practice.id} className="hover:bg-gray-50 transition-colors">
+                <tr 
+                  key={practice.id} 
+                  onClick={() => navigate(`/practices/${practice.id}`)}
+                  className="hover:bg-red-50/20 transition-all cursor-pointer group"
+                >
                   {(user?.isAdmin || user?.isTeamLeader) && (
-                      <td className="px-6 py-4 text-[11px] font-bold text-red-700">{practice.agentName?.toUpperCase()}</td>
+                      <td className="px-8 py-5">
+                          <span className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">{practice.agentName?.toUpperCase()}</span>
+                      </td>
                   )}
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900">{practice.cliente}</div>
-                    <div className="text-[10px] text-gray-400 font-medium">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
+                  <td className="px-8 py-5">
+                    <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm">{practice.customerData?.nome}</div>
+                    <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
                   </td>
-                  <td className="px-6 py-4 text-right font-bold text-gray-800 text-xs">{formatIT(practice.valoreTotale)}</td>
-                  <td className="px-6 py-4 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
-                  <td className="px-6 py-4 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
-                  <td className="px-6 py-4 text-center"><StatusBadge status={practice.statoOrdine} /></td>
-                  <td className="px-6 py-4 text-right">
-                    <Link to={`/practices/${practice.id}`} className="inline-flex items-center gap-1 text-gray-400 hover:text-red-600 font-bold uppercase text-[11px] transition-colors">
-                      Gestisci <ArrowRight size={14} />
-                    </Link>
-                  </td>
+                  <td className="px-8 py-5 text-right font-black text-gray-900 text-sm tabular-nums">{formatIT(practice.valoreTotale)}</td>
+                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
+                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
+                  <td className="px-8 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
                 </tr>
               ))}
             </tbody>
@@ -301,8 +397,12 @@ export const PracticesList: React.FC = () => {
       </div>
       
       {filtered.length === 0 && (
-        <div className="p-12 text-center text-gray-400 bg-white border border-gray-200 rounded-2xl">
-            Nessuna pratica trovata con i filtri correnti.
+        <div className="p-20 text-center flex flex-col items-center justify-center bg-white border border-gray-100 rounded-[2.5rem] shadow-sm">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-4">
+                <Search size={32} />
+            </div>
+            <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Nessuna corrispondenza trovata</p>
+            <button onClick={resetFilters} className="mt-4 text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline">Ripristina tutti i filtri</button>
         </div>
       )}
     </div>

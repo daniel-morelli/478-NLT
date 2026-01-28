@@ -216,9 +216,13 @@ export const Dashboard: React.FC = () => {
           <div className="bg-amber-50 border-l-4 border-amber-500 p-6 flex items-start gap-4 rounded-xl">
               <Database className="text-amber-500 flex-shrink-0" size={24} />
               <div>
-                  <h3 className="font-bold text-amber-900 uppercase text-xs tracking-widest mb-1">Nessuna pratica trovata</h3>
+                  <h3 className="font-bold text-amber-900 uppercase text-xs tracking-widest mb-1">
+                    {(user.isAdmin || user.isTeamLeader) ? "Database Globale Vuoto" : "Nessuna pratica trovata"}
+                  </h3>
                   <p className="text-amber-800 text-sm">
-                      Il database delle pratiche risulta vuoto per il tuo account. Se ritieni sia un errore, verifica i permessi della tabella su Supabase o inizia inserendo la tua prima pratica.
+                      {(user.isAdmin || user.isTeamLeader) 
+                        ? "Non risultano pratiche caricate nel sistema da nessun agente. Se ritieni sia un errore, verifica i permessi su Supabase."
+                        : "Il tuo archivio personale risulta vuoto. Inizia inserendo la tua prima pratica di noleggio."}
                   </p>
                   <button onClick={() => navigate('/practices/new')} className="mt-4 bg-amber-600 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-amber-700 rounded-lg">
                       Inserisci Nuova Pratica
@@ -232,7 +236,9 @@ export const Dashboard: React.FC = () => {
         <div className="flex items-center gap-3">
             <div className="bg-red-600 w-1 h-8 rounded-full"></div>
             <div>
-                <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest leading-none mb-1">Periodo di Analisi</h2>
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest leading-none mb-1">
+                    {(user.isAdmin || user.isTeamLeader) ? "Monitoraggio Rete" : "Le Mie Performance"}
+                </h2>
                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Filtri globali dashboard</p>
             </div>
         </div>
