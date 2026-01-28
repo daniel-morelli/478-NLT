@@ -3,7 +3,6 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent } from '../types';
-// Changed from namespace import to named imports to fix type errors
 import { useNavigate } from 'react-router-dom';
 import { 
   BarChart, 
@@ -18,7 +17,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { Clock, AlertCircle, User, Car, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Clock, AlertCircle, User, Car, AlertTriangle, ChevronRight, Database } from 'lucide-react';
 
 const MESI_FULL = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -41,20 +40,25 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user) {
       const fetchData = async () => {
-          const practicesData = await DbService.getPractices(user);
-          setPractices(practicesData);
-          
-          if (user.isAdmin || user.isTeamLeader) {
-              const agentsData = await DbService.getAllAgents(true);
-              setAgents(agentsData.filter(a => a.isAgent));
-          }
+          try {
+              const practicesData = await DbService.getPractices(user);
+              setPractices(practicesData);
+              
+              if (user.isAdmin || user.isTeamLeader) {
+                  const agentsData = await DbService.getAllAgents(true);
+                  setAgents(agentsData.filter(a => a.isAgent));
+              }
 
-          if (practicesData.length > 0) {
-              const pIds = practicesData.map(p => p.id);
-              const remindersData = await DbService.getRemindersForPractices(pIds);
-              setReminders(remindersData);
+              if (practicesData.length > 0) {
+                  const pIds = practicesData.map(p => p.id);
+                  const remindersData = await DbService.getRemindersForPractices(pIds);
+                  setReminders(remindersData);
+              }
+          } catch (e) {
+              console.error("Errore caricamento dashboard:", e);
+          } finally {
+              setLoading(false);
           }
-          setLoading(false);
       };
       fetchData();
     }
@@ -121,11 +125,9 @@ export const Dashboard: React.FC = () => {
       if (date.getFullYear() === filterYear && sameAgent) {
         const month = date.getMonth();
         if (!isNaN(month)) {
-            // Provvigioni
             data[month].trattativa += (p.valoreTotale || 0);
             data[month].affidamento += (p.valoreProvvigioneAffidamento || 0);
             data[month].ordine += (p.valoreProvvigioneTotale || 0);
-            // Valori Listino
             data[month].listinoTrattativa += (p.valoreListinoTrattativa || 0);
             data[month].listinoAffidamento += (p.valoreListinoAffidamento || 0);
             data[month].listinoOrdine += (p.valoreListinoOrdinato || 0);
@@ -157,7 +159,7 @@ export const Dashboard: React.FC = () => {
   if (!user) return null;
 
   const DetailBox = ({ title, items, type, chartData }: { title: string, items: {label: string, value: number, filterVal: string}[], type: string, chartData: any[] }) => (
-    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full rounded-none">
+    <div className="bg-white border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full rounded-2xl transition-all hover:shadow-md">
         <div className="bg-black text-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] flex justify-between items-center">
             {title}
             <ChevronRight size={14} className="text-red-600" />
@@ -168,7 +170,7 @@ export const Dashboard: React.FC = () => {
                     <div 
                         key={idx} 
                         onClick={() => handleFilterClick(type, item.filterVal)}
-                        className="flex justify-between items-center cursor-pointer group hover:bg-red-50 p-2 -mx-2 transition-colors border-b border-gray-50 last:border-0"
+                        className="flex justify-between items-center cursor-pointer group hover:bg-red-50 p-2 -mx-2 transition-colors border-b border-gray-50 last:border-0 rounded-lg"
                     >
                         <span className="text-gray-500 text-[11px] font-bold uppercase tracking-wider group-hover:text-red-700 transition-colors">{item.label}</span>
                         <span className="font-black text-gray-900 text-sm group-hover:scale-110 transition-transform">
@@ -195,13 +197,13 @@ export const Dashboard: React.FC = () => {
                                 {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                             </Pie>
                             <Tooltip 
-                                contentStyle={{backgroundColor: '#171717', color: '#fff', borderRadius: '0', border: 'none', fontSize: '10px', fontWeight: 'bold'}} 
+                                contentStyle={{backgroundColor: '#171717', color: '#fff', borderRadius: '12px', border: 'none', fontSize: '10px', fontWeight: 'bold'}} 
                                 itemStyle={{color: '#fff'}}
                             />
                         </PieChart>
                     </ResponsiveContainer>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-[10px] text-gray-300 uppercase font-black tracking-widest italic">Dati non disponibili</div>
+                    <div className="flex items-center justify-center h-full text-[10px] text-gray-300 uppercase font-black tracking-widest italic text-center px-4">Nessun dato corrispondente ai filtri</div>
                 )}
             </div>
         </div>
@@ -210,10 +212,25 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 md:space-y-8 pb-20">
-      {/* 1. FILTERS SECTION - Moved to the very top */}
-      <div className="bg-white p-4 border border-gray-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
+      {practices.length === 0 && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-6 flex items-start gap-4 rounded-xl">
+              <Database className="text-amber-500 flex-shrink-0" size={24} />
+              <div>
+                  <h3 className="font-bold text-amber-900 uppercase text-xs tracking-widest mb-1">Nessuna pratica trovata</h3>
+                  <p className="text-amber-800 text-sm">
+                      Il database delle pratiche risulta vuoto per il tuo account. Se ritieni sia un errore, verifica i permessi della tabella su Supabase o inizia inserendo la tua prima pratica.
+                  </p>
+                  <button onClick={() => navigate('/practices/new')} className="mt-4 bg-amber-600 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-amber-700 rounded-lg">
+                      Inserisci Nuova Pratica
+                  </button>
+              </div>
+          </div>
+      )}
+
+      {/* 1. FILTERS SECTION */}
+      <div className="bg-white p-4 border border-gray-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4 rounded-2xl">
         <div className="flex items-center gap-3">
-            <div className="bg-red-600 w-1 h-8"></div>
+            <div className="bg-red-600 w-1 h-8 rounded-full"></div>
             <div>
                 <h2 className="text-sm font-black text-gray-900 uppercase tracking-widest leading-none mb-1">Periodo di Analisi</h2>
                 <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Filtri globali dashboard</p>
@@ -226,7 +243,7 @@ export const Dashboard: React.FC = () => {
                     <select 
                         value={filterAgent}
                         onChange={(e) => setFilterAgent(e.target.value)}
-                        className="w-full lg:w-48 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900 appearance-none"
+                        className="w-full lg:w-48 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900 appearance-none rounded-xl"
                     >
                         <option value="all">TUTTI GLI AGENTI</option>
                         {agents.map(a => <option key={a.id} value={a.id}>{a.nome.toUpperCase()}</option>)}
@@ -237,7 +254,7 @@ export const Dashboard: React.FC = () => {
             <select 
                 value={filterMonth} 
                 onChange={(e) => setFilterMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                className="flex-1 lg:w-32 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900"
+                className="flex-1 lg:w-32 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900 rounded-xl"
             >
                 <option value="all">TUTTI I MESI</option>
                 {MESI_FULL.map((m, i) => <option key={i} value={i}>{m.toUpperCase()}</option>)}
@@ -246,7 +263,7 @@ export const Dashboard: React.FC = () => {
             <select 
                 value={filterYear} 
                 onChange={(e) => setFilterYear(Number(e.target.value))}
-                className="flex-1 lg:w-24 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900"
+                className="flex-1 lg:w-24 bg-white border border-gray-300 px-3 py-2 text-[10px] font-bold uppercase tracking-widest outline-none focus:ring-1 focus:ring-red-600 text-gray-900 rounded-xl"
             >
                 {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
@@ -257,7 +274,7 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div 
             onClick={() => handleFilterClick('reminder', 'future')}
-            className="bg-white border border-gray-200 border-l-4 border-l-red-600 p-6 shadow-sm flex flex-col justify-center min-h-[110px] cursor-pointer group hover:bg-gray-50 transition-colors"
+            className="bg-white border border-gray-200 border-l-4 border-l-red-600 p-6 shadow-sm flex flex-col justify-center min-h-[110px] cursor-pointer group hover:bg-gray-50 transition-all rounded-2xl"
           >
               <div className="flex flex-col">
                   <span className="text-red-600 font-black uppercase text-[9px] tracking-widest mb-1">In Programma</span>
@@ -267,10 +284,10 @@ export const Dashboard: React.FC = () => {
 
           <div 
             onClick={() => handleFilterClick('reminder', 'expired')}
-            className="bg-white border border-gray-200 p-6 shadow-sm flex items-center justify-between min-h-[110px] cursor-pointer group hover:bg-gray-50 transition-colors"
+            className="bg-white border border-gray-200 p-6 shadow-sm flex items-center justify-between min-h-[110px] cursor-pointer group hover:bg-gray-50 transition-all rounded-2xl"
           >
               <div className="flex items-center gap-4">
-                  <div className="bg-red-600 text-white p-3.5 shadow-lg group-hover:scale-105 transition-transform">
+                  <div className="bg-red-600 text-white p-3.5 shadow-lg group-hover:scale-105 transition-transform rounded-xl">
                       <Car size={24} />
                   </div>
                   <div className="flex flex-col">
@@ -280,12 +297,12 @@ export const Dashboard: React.FC = () => {
               </div>
           </div>
 
-          <div className="bg-white border border-gray-200 p-6 shadow-sm flex items-center justify-between min-h-[110px] group hover:bg-gray-50 transition-colors">
+          <div className="bg-white border border-gray-200 p-6 shadow-sm flex items-center justify-between min-h-[110px] group hover:bg-gray-50 transition-all rounded-2xl">
               <div className="flex flex-col">
                   <span className="text-red-600 font-black uppercase text-[9px] tracking-widest mb-1">Opportunità</span>
                   <h4 className="text-gray-900 font-black text-2xl tracking-tight leading-none uppercase">Veicoli: {totalPotenzialiVeicoli}</h4>
               </div>
-              <div className="bg-black text-white p-3.5 shadow-lg group-hover:bg-red-600 transition-all">
+              <div className="bg-black text-white p-3.5 shadow-lg group-hover:bg-red-600 transition-all rounded-xl">
                   <AlertCircle size={24} />
               </div>
           </div>
@@ -310,7 +327,7 @@ export const Dashboard: React.FC = () => {
             items={[
                 { label: 'In Attesa Esito', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, filterVal: CreditStatus.IN_ATTESA },
                 { label: 'Approvati (Totali)', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, filterVal: CreditStatus.APPROVATO },
-                { label: 'Bocciati / Negati', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, filterVal: CreditStatus.BOCCIATO },
+                { label: 'Bocciati / Negati', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, filterVal: DealStatus.FALLITA },
             ]}
         />
         <DetailBox 
@@ -325,10 +342,9 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* 4. CHARTS SECTION - Full Width */}
+      {/* 4. CHARTS SECTION */}
       <div className="space-y-8">
-        {/* Provvigioni Chart */}
-        <div className="bg-white p-6 shadow-sm border border-gray-200">
+        <div className="bg-white p-6 shadow-sm border border-gray-200 rounded-2xl">
           <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
               <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Andamento Provvigionale {filterYear}</h3>
               <div className="text-[9px] font-bold text-gray-400 italic uppercase">Dati espressi in Euro (€)</div>
@@ -340,40 +356,14 @@ export const Dashboard: React.FC = () => {
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} tickFormatter={(val) => `€${val/1000}k`} />
                 <Tooltip 
-                  cursor={{fill: '#fef2f2'}}
-                  contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '0', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
+                  cursor={{fill: '#fef2f2', radius: 8}}
+                  contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
                   formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.toUpperCase()]}
                 />
                 <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
-                <Bar dataKey="trattativa" name="Trattativa" fill="#dc2626" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="affidamento" name="Affidamento" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="ordine" name="Ordine" fill="#10b981" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Valori di Listino Chart */}
-        <div className="bg-white p-6 shadow-sm border border-gray-200">
-          <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-              <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Andamento Valori di Listino {filterYear}</h3>
-              <div className="text-[9px] font-bold text-gray-400 italic uppercase">Dati espressi in Euro (€)</div>
-          </div>
-          <div className="h-72 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyChartData}>
-                <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} tickFormatter={(val) => `€${val/1000}k`} />
-                <Tooltip 
-                  cursor={{fill: '#fef2f2'}}
-                  contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '0', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
-                  formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.replace('listino', '').toUpperCase()]}
-                />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
-                <Bar dataKey="listinoTrattativa" name="Trattativa (Listino)" fill="#dc2626" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="listinoAffidamento" name="Affidamento (Listino)" fill="#f59e0b" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="listinoOrdine" name="Ordine (Listino)" fill="#10b981" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="trattativa" name="Trattativa" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="affidamento" name="Affidamento" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ordine" name="Ordine" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

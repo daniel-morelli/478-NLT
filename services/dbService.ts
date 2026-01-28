@@ -1,4 +1,5 @@
 
+
 import { Agent, Practice, Provider, Reminder } from '../types';
 import { supabase } from './firebaseConfig';
 
@@ -35,14 +36,12 @@ const fromDbPractice = (p: any): Practice => ({
   provider: p.provider,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
-  
   valoreListinoTrattativa: p.valore_listino_trattativa ?? 0,
   mesePrevistoChiusura: p.mese_previsto_chiusura ?? '',
   valoreListinoAffidamento: p.valore_listino_affidamento ?? 0,
-  valoreProvvigioneAffidamento: p.valore_provvigione_affidamento ?? 0, // Mapping nuovo campo
+  valoreProvvigioneAffidamento: p.valore_provvigione_affidamento ?? 0, 
   numeroVeicoliAffidamento: p.numero_veicoli_affidamento ?? 0,
   valoreListinoOrdinato: p.valore_listino_ordinato ?? 0,
-
   statoTrattativa: p.stato_trattativa,
   annotazioniTrattativa: p.annotazioni_trattativa ?? '',
   dataAffidamento: p.data_affidamento,
@@ -56,6 +55,7 @@ const fromDbPractice = (p: any): Practice => ({
   deletedAt: p.deleted_at
 });
 
+// Fix: corrected property names on the right side of the assignments to use camelCase from Practice interface
 const toDbPractice = (p: Partial<Practice>) => {
   const data: any = {
     agent_id: p.agentId,
@@ -64,24 +64,22 @@ const toDbPractice = (p: Partial<Practice>) => {
     provider: p.provider,
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
-    
     valore_listino_trattativa: p.valoreListinoTrattativa,
     mese_previsto_chiusura: p.mesePrevistoChiusura,
     valore_listino_affidamento: p.valoreListinoAffidamento,
-    valore_provvigione_affidamento: p.valoreProvvigioneAffidamento, // Mapping nuovo campo
+    valore_provvigione_affidamento: p.valoreProvvigioneAffidamento,
     numero_veicoli_affidamento: p.numeroVeicoliAffidamento,
     valore_listino_ordinato: p.valoreListinoOrdinato,
-
     stato_trattativa: p.statoTrattativa,
-    annotazioni_trattativa: p.annotazioniTrattativa,
+    annotazioni_trattativa: p.annotazioniTrattativa ?? '',
     data_affidamento: p.dataAffidamento,
     stato_affidamento: p.statoAffidamento || null,
-    annotazioni_affidamento: p.annotazioniAffidamento,
+    annotazioni_affidamento: p.annotazioniAffidamento ?? '',
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     stato_ordine: p.statoOrdine || null,
-    annotazione_ordine: p.annotazioneOrdine,
+    annotazione_ordine: p.annotazioneOrdine ?? '',
     deleted_at: p.deletedAt
   };
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
@@ -106,17 +104,56 @@ const fromDbReminder = (r: any): Reminder => ({
 
 export const DbService = {
   // --- AGENTS ---
-  getAgentByCredentials: async (email: string, password: string): Promise<Agent | null> => {
-    if (!supabase) throw new Error("Supabase client non inizializzato");
+  validateLogin: async (email: string, pin: string): Promise<Agent | null> => {
+    if (!supabase) return null;
     const { data, error } = await supabase
       .from('nlt_agents')
       .select('*')
-      .eq('email', email)
-      .eq('pin', password)
+      .ilike('email', email.trim())
+      .eq('pin', pin.trim())
       .eq('is_active', true)
       .maybeSingle();
-    if (error) throw error;
+    
+    if (error) {
+        console.error("ERRORE LOGIN DATABASE:", error.message, error.details);
+        return null;
+    }
     return data ? fromDbAgent(data) : null;
+  },
+
+  getAgentProfile: async (userId: string): Promise<Agent | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from('nlt_agents')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) {
+        console.error("ERRORE PROFILO AGENTE:", error.message);
+        return null;
+    }
+    return data ? fromDbAgent(data) : null;
+  },
+
+  isEmailAuthorized: async (email: string): Promise<boolean> => {
+    if (!supabase) return false;
+    const cleanEmail = email.trim();
+    const { data, error } = await supabase
+      .from('nlt_agents')
+      .select('email')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+    if (error) console.error("ERRORE AUTORIZZAZIONE EMAIL:", error.message);
+    return !!data;
+  },
+
+  updatePasswordByEmail: async (email: string, newPin: string): Promise<void> => {
+      if (!supabase) return;
+      const { error } = await supabase
+        .from('nlt_agents')
+        .update({ pin: newPin })
+        .ilike('email', email.trim());
+      if (error) throw error;
   },
 
   updatePassword: async (agentId: string, newPassword: string): Promise<void> => {
@@ -133,7 +170,10 @@ export const DbService = {
     let query = supabase.from('nlt_agents').select('*').order('nome');
     if (onlyActive) query = query.eq('is_active', true);
     const { data, error } = await query;
-    if (error) return [];
+    if (error) {
+        console.error("ERRORE RECUPERO AGENTI:", error.message);
+        return [];
+    }
     return data.map(fromDbAgent);
   },
 
@@ -141,10 +181,18 @@ export const DbService = {
     if (!supabase) return;
     const dbData = toDbAgent(agent);
     if (agent.id) {
-       await supabase.from('nlt_agents').update(dbData).eq('id', agent.id);
+       const { error } = await supabase.from('nlt_agents').update(dbData).eq('id', agent.id);
+       if (error) throw error;
     } else {
-       await supabase.from('nlt_agents').insert([dbData]);
+       const { error } = await supabase.from('nlt_agents').insert([dbData]);
+       if (error) throw error;
     }
+  },
+
+  deleteAgent: async (agentId: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.from('nlt_agents').delete().eq('id', agentId);
+    if (error) throw error;
   },
 
   getAllProviders: async (onlyActive = false): Promise<Provider[]> => {
@@ -173,37 +221,33 @@ export const DbService = {
       .is('deleted_at', null)
       .order('data', { ascending: false });
     
-    // Solo l'Agente Standard (non admin e non team leader) vede solo le sue
     if (user.isAgent && !user.isAdmin && !user.isTeamLeader) {
       query = query.eq('agent_id', user.id);
     }
 
     const { data: practicesData, error } = await query;
-    
     if (error) {
-      console.error("Errore recupero pratiche:", error);
-      return [];
+        console.error("ERRORE RECUPERO PRATICHE:", error.message, error.details);
+        return [];
     }
-
     if (!practicesData) return [];
 
     let resultPractices = [...practicesData];
     
-    // Admin e Team Leader vedono i nomi degli agenti
     if ((user.isAdmin || user.isTeamLeader) && resultPractices.length > 0) {
-        const { data: agentsData } = await supabase.from('nlt_agents').select('id, nome');
-        if (agentsData) {
+        const { data: agentsData, error: agentsError } = await supabase.from('nlt_agents').select('id, nome');
+        if (agentsData && !agentsError) {
             const agentsMap = new Map(agentsData.map(a => [a.id, a.nome]));
             resultPractices = resultPractices.map(p => ({
                 ...p,
                 agentName: agentsMap.get(p.agent_id) || '-'
             }));
+        } else if (agentsError) {
+            console.warn("Impossibile mappare i nomi degli agenti:", agentsError.message);
         }
     }
 
-    return resultPractices
-      .map(fromDbPractice)
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    return resultPractices.map(fromDbPractice);
   },
 
   savePractice: async (practice: Partial<Practice>): Promise<void> => {

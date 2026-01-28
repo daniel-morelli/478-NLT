@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent } from '../types';
-// Changed from namespace import to named imports to fix type errors
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase } from 'lucide-react';
 
@@ -126,7 +125,7 @@ export const PracticesList: React.FC = () => {
   };
 
   const getStatusStyles = (status: string) => {
-    const base = "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tight border transition-all duration-200 whitespace-nowrap max-w-fit";
+    const base = "inline-flex items-center justify-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tight border transition-all duration-200 whitespace-nowrap max-w-fit";
     if (!status) return { className: `${base} bg-gray-50 text-gray-400 border-gray-100` };
     if (status === DealStatus.IN_CORSO) return { className: `${base} bg-orange-50 text-orange-700 border-orange-200` };
     if (status === DealStatus.CHIUSA) return { className: `${base} bg-emerald-50 text-emerald-700 border-emerald-200` };
@@ -163,7 +162,7 @@ export const PracticesList: React.FC = () => {
         </div>
         <Link 
           to="/practices/new" 
-          className="w-full md:w-auto text-center flex items-center justify-center gap-2 bg-red-600 text-white px-5 py-3 hover:bg-red-700 shadow-lg shadow-red-900/20 transition-all transform active:scale-95 font-bold uppercase text-sm tracking-wide rounded md:rounded-none"
+          className="w-full md:w-auto text-center flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 hover:bg-red-700 shadow-lg shadow-red-900/20 transition-all transform active:scale-95 font-bold uppercase text-sm tracking-wide rounded-2xl"
         >
           <Plus size={18} />
           Nuova Pratica
@@ -171,7 +170,7 @@ export const PracticesList: React.FC = () => {
       </div>
 
       {(searchParams.get('filterType') || localYearFilter !== 'all' || localAgentFilter !== 'all' || search) && (
-          <div className="bg-black text-white p-4 flex justify-between items-center shadow-md border-l-4 border-red-600 rounded md:rounded-none">
+          <div className="bg-black text-white p-4 flex justify-between items-center shadow-md border-l-4 border-red-600 rounded-2xl">
               <div className="flex items-center gap-2">
                   <Filter size={18} className="text-red-500 flex-shrink-0"/>
                   <div className="font-bold uppercase tracking-wide text-xs md:text-sm">
@@ -184,7 +183,7 @@ export const PracticesList: React.FC = () => {
           </div>
       )}
 
-      <div className="bg-white p-4 shadow-sm border border-gray-200 flex flex-col lg:flex-row gap-4 rounded md:rounded-none">
+      <div className="bg-white p-4 shadow-sm border border-gray-200 flex flex-col lg:flex-row gap-4 rounded-2xl">
         <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input 
@@ -192,7 +191,7 @@ export const PracticesList: React.FC = () => {
                 placeholder="Cerca cliente o provider..." 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded md:rounded-none text-sm"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded-xl text-sm"
             />
         </div>
         
@@ -200,7 +199,7 @@ export const PracticesList: React.FC = () => {
             <select 
                 value={localYearFilter} 
                 onChange={(e) => setLocalYearFilter(e.target.value)}
-                className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded md:rounded-none text-sm"
+                className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded-xl text-sm"
             >
                 <option value="all">Filtra per Anno</option>
                 <option value="2024">2024</option>
@@ -212,7 +211,7 @@ export const PracticesList: React.FC = () => {
                 <select 
                     value={localAgentFilter} 
                     onChange={(e) => setLocalAgentFilter(e.target.value)}
-                    className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded md:rounded-none text-sm"
+                    className="w-full md:w-auto border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 bg-white text-gray-700 font-medium rounded-xl text-sm"
                 >
                     <option value="all">Tutti gli Agenti</option>
                     {agents.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
@@ -223,7 +222,7 @@ export const PracticesList: React.FC = () => {
 
       <div className="md:hidden space-y-4">
         {filtered.map(practice => (
-            <div key={practice.id} className="bg-white border border-gray-200 p-5 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <div key={practice.id} className="bg-white border border-gray-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-4">
                     <div>
                          {(user?.isAdmin || user?.isTeamLeader) && (
@@ -251,7 +250,7 @@ export const PracticesList: React.FC = () => {
 
                 <Link 
                   to={`/practices/${practice.id}`}
-                  className="flex items-center justify-center gap-2 w-full bg-gray-50 text-gray-700 py-3 border border-gray-200 rounded font-bold uppercase text-xs hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full bg-gray-50 text-gray-700 py-3 border border-gray-200 rounded-xl font-bold uppercase text-xs hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
                 >
                   Gestisci Pratica <ArrowRight size={14} />
                 </Link>
@@ -259,7 +258,7 @@ export const PracticesList: React.FC = () => {
         ))}
       </div>
 
-      <div className="hidden md:block bg-white shadow-sm border border-gray-200 overflow-hidden">
+      <div className="hidden md:block bg-white shadow-sm border border-gray-200 overflow-hidden rounded-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-black text-white">
@@ -302,7 +301,7 @@ export const PracticesList: React.FC = () => {
       </div>
       
       {filtered.length === 0 && (
-        <div className="p-12 text-center text-gray-400 bg-white border border-gray-200 rounded md:rounded-none">
+        <div className="p-12 text-center text-gray-400 bg-white border border-gray-200 rounded-2xl">
             Nessuna pratica trovata con i filtri correnti.
         </div>
       )}
