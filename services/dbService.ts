@@ -42,7 +42,6 @@ const fromDbPractice = (p: any): Practice => ({
   customerId: p.customer_id,
   data: p.data,
   provider: p.provider,
-  // FIX: corrected key from tipo_trattativa to tipoTrattativa to match Practice interface
   tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
@@ -54,7 +53,7 @@ const fromDbPractice = (p: any): Practice => ({
   veicoliAffidamento: p.veicoli_affidamento || [],
   valoreListinoOrdinato: p.valore_listino_ordinato ?? 0,
   statoTrattativa: p.stato_trattativa,
-  annotazioniTrattativa: p.annotazioni_attiva ?? '',
+  annotazioniTrattativa: p.annotazioni_trattativa ?? '',
   dataAffidamento: p.data_affidamento,
   statoAffidamento: p.stato_affidamento ?? '',
   annotazioniAffidamento: p.annotazioni_affidamento ?? '',
@@ -79,7 +78,7 @@ const toDbPractice = (p: Partial<Practice>) => {
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     valore_listino_trattativa: p.valoreListinoTrattativa,
-    mese_previsto_chiusura: p.mese_previsto_chiusura,
+    mese_previsto_chiusura: p.mesePrevistoChiusura,
     valore_listino_affidamento: p.valoreListinoAffidamento,
     valore_provvigione_affidamento: p.valoreProvvigioneAffidamento,
     numero_veicoli_affidamento: p.numeroVeicoliAffidamento,
@@ -88,16 +87,14 @@ const toDbPractice = (p: Partial<Practice>) => {
     stato_trattativa: p.statoTrattativa,
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
     data_affidamento: p.dataAffidamento,
-    // FIX: Using camelCase property statoAffidamento from Practice interface instead of snake_case
     stato_affidamento: p.statoAffidamento || null,
     annotazioni_affidamento: p.annotazioniAffidamento ?? '',
     data_ordine: p.dataOrdine,
     numero_veicoli_ordinati: p.numeroVeicoliOrdinati,
     valore_provvigione_totale: p.valoreProvvigioneTotale,
     veicoli_ordine: p.veicoliOrdine,
-    // FIX: Using camelCase property statoOrdine from Practice interface instead of snake_case
     stato_ordine: p.statoOrdine || null,
-    annotazione_ordine: p.annotazione_ordine ?? '',
+    annotazione_ordine: p.annotazioneOrdine ?? '',
     valido_rappel: p.validoRappel || null,
     is_locked: p.isLocked ?? false,
     deleted_at: p.deletedAt
