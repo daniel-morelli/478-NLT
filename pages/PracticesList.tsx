@@ -38,17 +38,31 @@ export const PracticesList: React.FC = () => {
   // Vista Admin Specifica
   const adminView = searchParams.get('adminView');
 
+  // 1. CARICAMENTO FILTRI DA SESSION STORAGE ALL'AVVIO
   useEffect(() => {
     const saved = sessionStorage.getItem('nlt_filters_v2');
-    if (saved && !searchParams.toString()) {
+    if (saved) {
         const parsed = JSON.parse(saved);
-        setSearch(parsed.search || '');
-        setLocalYearFilter(parsed.year || 'all');
-        setLocalAgentFilter(parsed.agent || 'all');
-        setLocalProviderFilter(parsed.provider || 'all');
-        setLocalDealFilter(parsed.deal || 'all');
-        setLocalCreditFilter(parsed.credit || 'all');
-        setLocalOrderFilter(parsed.order || 'all');
+        
+        // Se l'URL è vuoto, ripristiniamo tutto (inclusa l'adminView se presente)
+        if (!searchParams.toString()) {
+            setSearch(parsed.search || '');
+            setLocalYearFilter(parsed.year || 'all');
+            setLocalAgentFilter(parsed.agent || 'all');
+            setLocalProviderFilter(parsed.provider || 'all');
+            setLocalDealFilter(parsed.deal || 'all');
+            setLocalCreditFilter(parsed.credit || 'all');
+            setLocalOrderFilter(parsed.order || 'all');
+            
+            // Se c'era una adminView salvata, la rimettiamo nell'URL
+            if (parsed.adminView) {
+                setSearchParams({ adminView: parsed.adminView });
+            }
+        } else {
+            // Se l'URL ha già parametri (es. veniamo dal menu admin), 
+            // carichiamo solo gli stati locali ma diamo priorità all'URL
+            setSearch(parsed.search || '');
+        }
     }
   }, []);
 
@@ -70,7 +84,7 @@ export const PracticesList: React.FC = () => {
                 setAgents(agentsData.filter(a => a.isAgent));
             }
 
-            // Parametri dalla Dashboard
+            // Parametri dalla Dashboard (hanno priorità se presenti)
             const filterType = searchParams.get('filterType');
             const filterValue = searchParams.get('filterValue');
             const agentIdParam = searchParams.get('agentId');
@@ -87,23 +101,24 @@ export const PracticesList: React.FC = () => {
       };
       fetchData();
     }
-  }, [user, searchParams]); // Ricarica se cambiano i parametri URL
+  }, [user, searchParams]);
 
-  // Trigger filtraggio e salvataggio
+  // 2. SALVATAGGIO FILTRI E APPLICAZIONE
   useEffect(() => {
     if (!loading) {
        applyFilters(); 
-       if (!adminView) {
-           sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
-               search,
-               year: localYearFilter,
-               agent: localAgentFilter,
-               provider: localProviderFilter,
-               deal: localDealFilter,
-               credit: localCreditFilter,
-               order: localOrderFilter
-           }));
-       }
+       
+       // Salviamo sempre lo stato corrente per ritrovarlo al ritorno
+       sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
+           search,
+           year: localYearFilter,
+           agent: localAgentFilter,
+           provider: localProviderFilter,
+           deal: localDealFilter,
+           credit: localCreditFilter,
+           order: localOrderFilter,
+           adminView: adminView || undefined // Salviamo anche la vista admin
+       }));
     }
   }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, practices, loading, adminView]);
 
@@ -123,7 +138,7 @@ export const PracticesList: React.FC = () => {
                 res = res.filter(p => p.isLocked === true);
                 break;
             case 'rappel_da_verificare':
-                res = res.filter(p => p.statoOrdine === OrderStatus.INVIATO && (!p.validoRappel || p.validoRappel === ''));
+                res = res.filter(p => p.statoOrdine === OrderStatus.INVIATO && (!p.validoRappel || (p.validoRappel as string) === ''));
                 break;
         }
     } else {
@@ -155,6 +170,7 @@ export const PracticesList: React.FC = () => {
     setLocalCreditFilter('all');
     setLocalOrderFilter('all');
     setSearchParams({});
+    sessionStorage.removeItem('nlt_filters_v2');
   };
 
   const countActiveFilters = () => {
@@ -170,10 +186,10 @@ export const PracticesList: React.FC = () => {
 
   const getAdminViewTitle = () => {
       switch(adminView) {
-          case 'ord_chiuso_trat_aperta': return "Ord. Chiuso / Trat. Aperta";
-          case 'prat_da_verificare': return "Pratiche da Verificare";
-          case 'prat_verificate': return "Pratiche Verificate (Locked)";
-          case 'rappel_da_verificare': return "Rappel da Definire";
+          case 'ord_chiuso_trat_aperta': return "Ord. chiuso Trat. aperta";
+          case 'prat_da_verificare': return "Pratiche da verificare";
+          case 'prat_verificate': return "Pratiche verificate";
+          case 'rappel_da_verificare': return "Rappel da verificare";
           default: return "";
       }
   };
@@ -197,13 +213,13 @@ export const PracticesList: React.FC = () => {
   const TypeIcon = ({ type }: { type: PracticeType }) => {
     if (type === PracticeType.PROROGA) {
         return (
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-100" title="PROROGA">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg border border-blue-100">
                 <RefreshCw size={14} />
             </div>
         );
     }
     return (
-        <div className="p-2 bg-gray-900 text-white rounded-lg border border-black" title="ORDINE">
+        <div className="p-2 bg-gray-900 text-white rounded-lg border border-black">
             <ShoppingCart size={14} />
         </div>
     );
@@ -388,7 +404,11 @@ export const PracticesList: React.FC = () => {
                         <div className="flex-1">
                              <div className="flex items-center gap-2 mb-2">
                                 <TypeIcon type={practice.tipoTrattativa} />
-                                {practice.isLocked && <ShieldAlert size={14} className="text-red-600" title="Verificata / Locked" />}
+                                {practice.isLocked && (
+                                  <span className="text-red-600">
+                                    <ShieldAlert size={14} />
+                                  </span>
+                                )}
                                 {(user?.isAdmin || user?.isTeamLeader) && (
                                     <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase tracking-widest">
                                         <User size={10} /> {practice.agentName}
@@ -463,11 +483,11 @@ export const PracticesList: React.FC = () => {
                   <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
                   <td className="px-6 py-5 text-center">
                       {practice.isLocked ? (
-                        <div className="bg-red-600 text-white p-1 rounded-md inline-block shadow-sm" title="Pratica Verificata / Bloccata">
+                        <div className="bg-red-600 text-white p-1 rounded-md inline-block shadow-sm">
                             <ShieldAlert size={12} />
                         </div>
                       ) : (
-                        <div className="bg-gray-100 text-gray-300 p-1 rounded-md inline-block" title="Pratica non ancora verificata">
+                        <div className="bg-gray-100 text-gray-300 p-1 rounded-md inline-block">
                             <ShieldAlert size={12} />
                         </div>
                       )}

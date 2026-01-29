@@ -18,7 +18,9 @@ import {
   ClipboardCheck,
   AlertCircle,
   Clock,
-  Zap
+  Zap,
+  ShieldAlert,
+  Settings
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -26,7 +28,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const [isAdminFiltersOpen, setIsAdminFiltersOpen] = useState(true);
+  
+  // Menu chiusi di default all'apertura
+  const [isAdminFiltersOpen, setIsAdminFiltersOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   if (!user) return <>{children}</>;
 
@@ -97,11 +102,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             
             {isPowerUser && (
               <div className="mt-8 space-y-1.5">
+                {/* MENU FILTRI ADMIN */}
                 <button 
                   onClick={() => setIsAdminFiltersOpen(!isAdminFiltersOpen)}
                   className="flex items-center justify-between w-full px-4 py-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-red-500 transition-colors"
                 >
-                  FILTRI ADMIN
+                  <span className="flex items-center gap-2"><Filter size={14}/> FILTRI ADMIN</span>
                   <ChevronDown size={14} className={`transition-transform duration-300 ${isAdminFiltersOpen ? 'rotate-180' : ''}`} />
                 </button>
                 
@@ -111,32 +117,44 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       to="/practices" 
                       search="?adminView=ord_chiuso_trat_aperta" 
                       icon={Clock} 
-                      label="Ord. Chiuso / Trat. Aperta" 
+                      label="Ord. chiuso Trat. aperta" 
                     />
                     <NavItem 
                       to="/practices" 
                       search="?adminView=prat_da_verificare" 
                       icon={AlertCircle} 
-                      label="Prat. da Verificare" 
+                      label="Prat. da verificare" 
                     />
                     <NavItem 
                       to="/practices" 
                       search="?adminView=prat_verificate" 
                       icon={ClipboardCheck} 
-                      label="Prat. Verificate" 
+                      label="Prat. verificate" 
                     />
                     <NavItem 
                       to="/practices" 
                       search="?adminView=rappel_da_verificare" 
                       icon={Zap} 
-                      label="Rappel da Verificare" 
+                      label="Rappel da verificare" 
                     />
                   </div>
                 )}
 
-                <p className="px-4 pt-6 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-[0.3em]">Configurazione</p>
-                {user.isAdmin && <NavItem to="/agents" icon={Users} label="Gestione Agenti" />}
-                <NavItem to="/providers" icon={Briefcase} label="Gestione Provider" />
+                {/* MENU CONFIGURAZIONE */}
+                <button 
+                  onClick={() => setIsConfigOpen(!isConfigOpen)}
+                  className="flex items-center justify-between w-full px-4 pt-4 pb-2 text-[10px] font-black text-gray-600 uppercase tracking-[0.3em] hover:text-red-500 transition-colors"
+                >
+                  <span className="flex items-center gap-2"><Settings size={14}/> CONFIGURAZIONE</span>
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${isConfigOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isConfigOpen && (
+                  <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
+                    {user.isAdmin && <NavItem to="/agents" icon={Users} label="Gestione Agenti" />}
+                    <NavItem to="/providers" icon={Briefcase} label="Gestione Provider" />
+                  </div>
+                )}
               </div>
             )}
           </nav>
