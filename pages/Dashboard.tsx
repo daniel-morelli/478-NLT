@@ -113,9 +113,6 @@ export const Dashboard: React.FC = () => {
       trattativa: 0,
       affidamento: 0,
       ordine: 0,
-      listinoTrattativa: 0,
-      listinoAffidamento: 0,
-      listinoOrdine: 0,
       isCurrent: filterMonth !== 'all' && i === filterMonth
     }));
     
@@ -125,12 +122,16 @@ export const Dashboard: React.FC = () => {
       if (date.getFullYear() === filterYear && sameAgent) {
         const month = date.getMonth();
         if (!isNaN(month)) {
+            // Trattativa (Stima iniziale)
             data[month].trattativa += (p.valoreTotale || 0);
-            data[month].affidamento += (p.valoreProvvigioneAffidamento || 0);
-            data[month].ordine += (p.valoreProvvigioneTotale || 0);
-            data[month].listinoTrattativa += (p.valoreListinoTrattativa || 0);
-            data[month].listinoAffidamento += (p.valoreListinoAffidamento || 0);
-            data[month].listinoOrdine += (p.valoreListinoOrdinato || 0);
+            
+            // Affidamento (Somma provvigioni veicoli approvati)
+            const provAffidamento = (p.veicoliAffidamento || []).reduce((s, v) => s + (v.provvigione || 0), 0);
+            data[month].affidamento += provAffidamento;
+            
+            // Ordine (Somma provvigioni veicoli ordinati)
+            const provOrdine = (p.veicoliOrdine || []).reduce((s, v) => s + (v.provvigione || 0), 0);
+            data[month].ordine += provOrdine;
         }
       }
     });
@@ -367,9 +368,9 @@ export const Dashboard: React.FC = () => {
                   formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.toUpperCase()]}
                 />
                 <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
-                <Bar dataKey="trattativa" name="Trattativa" fill="#dc2626" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="affidamento" name="Affidamento" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="ordine" name="Ordine" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="trattativa" name="Trattativa (Stima)" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="affidamento" name="Affidamento (Approvata)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ordine" name="Ordine (Firmata)" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

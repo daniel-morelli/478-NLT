@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert } from 'lucide-react';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -34,8 +34,10 @@ export const PracticesList: React.FC = () => {
   const [localDealFilter, setLocalDealFilter] = useState('all');
   const [localCreditFilter, setLocalCreditFilter] = useState('all');
   const [localOrderFilter, setLocalOrderFilter] = useState('all');
+  
+  // Vista Admin Specifica
+  const adminView = searchParams.get('adminView');
 
-  // Caricamento iniziale e ripristino filtri salvati
   useEffect(() => {
     const saved = sessionStorage.getItem('nlt_filters_v2');
     if (saved && !searchParams.toString()) {
@@ -85,54 +87,60 @@ export const PracticesList: React.FC = () => {
       };
       fetchData();
     }
-  }, [user]);
+  }, [user, searchParams]); // Ricarica se cambiano i parametri URL
 
   // Trigger filtraggio e salvataggio
   useEffect(() => {
     if (!loading) {
        applyFilters(); 
-       sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
-           search,
-           year: localYearFilter,
-           agent: localAgentFilter,
-           provider: localProviderFilter,
-           deal: localDealFilter,
-           credit: localCreditFilter,
-           order: localOrderFilter
-       }));
+       if (!adminView) {
+           sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
+               search,
+               year: localYearFilter,
+               agent: localAgentFilter,
+               provider: localProviderFilter,
+               deal: localDealFilter,
+               credit: localCreditFilter,
+               order: localOrderFilter
+           }));
+       }
     }
-  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, practices, loading]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, practices, loading, adminView]);
 
   const applyFilters = () => {
     let res = [...practices];
 
-    // Ricerca Testuale
-    if (search) {
-      const s = search.toLowerCase();
-      res = res.filter(p => (
-          p.customerData?.nome?.toLowerCase().includes(s) || 
-          p.provider.toLowerCase().includes(s)
-      ));
-    }
-
-    // Filtri a tendina
-    if (localYearFilter !== 'all') {
-        res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
-    }
-    if (localAgentFilter !== 'all') {
-        res = res.filter(p => p.agentId === localAgentFilter);
-    }
-    if (localProviderFilter !== 'all') {
-        res = res.filter(p => p.provider === localProviderFilter);
-    }
-    if (localDealFilter !== 'all') {
-        res = res.filter(p => p.statoTrattativa === localDealFilter);
-    }
-    if (localCreditFilter !== 'all') {
-        res = res.filter(p => p.statoAffidamento === localCreditFilter);
-    }
-    if (localOrderFilter !== 'all') {
-        res = res.filter(p => p.statoOrdine === localOrderFilter);
+    // Logica Viste Admin (Parametri URL prioritari)
+    if (adminView) {
+        switch(adminView) {
+            case 'ord_chiuso_trat_aperta':
+                res = res.filter(p => p.statoOrdine === OrderStatus.INVIATO && p.statoTrattativa === DealStatus.IN_CORSO);
+                break;
+            case 'prat_da_verificare':
+                res = res.filter(p => p.statoOrdine === OrderStatus.INVIATO && !p.isLocked);
+                break;
+            case 'prat_verificate':
+                res = res.filter(p => p.isLocked === true);
+                break;
+            case 'rappel_da_verificare':
+                res = res.filter(p => p.statoOrdine === OrderStatus.INVIATO && (!p.validoRappel || p.validoRappel === ''));
+                break;
+        }
+    } else {
+        // Filtri Standard
+        if (search) {
+          const s = search.toLowerCase();
+          res = res.filter(p => (
+              p.customerData?.nome?.toLowerCase().includes(s) || 
+              p.provider.toLowerCase().includes(s)
+          ));
+        }
+        if (localYearFilter !== 'all') res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
+        if (localAgentFilter !== 'all') res = res.filter(p => p.agentId === localAgentFilter);
+        if (localProviderFilter !== 'all') res = res.filter(p => p.provider === localProviderFilter);
+        if (localDealFilter !== 'all') res = res.filter(p => p.statoTrattativa === localDealFilter);
+        if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
+        if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
     }
 
     setFiltered(res);
@@ -158,6 +166,16 @@ export const PracticesList: React.FC = () => {
       if (localCreditFilter !== 'all') count++;
       if (localOrderFilter !== 'all') count++;
       return count;
+  };
+
+  const getAdminViewTitle = () => {
+      switch(adminView) {
+          case 'ord_chiuso_trat_aperta': return "Ord. Chiuso / Trat. Aperta";
+          case 'prat_da_verificare': return "Pratiche da Verificare";
+          case 'prat_verificate': return "Pratiche Verificate (Locked)";
+          case 'rappel_da_verificare': return "Rappel da Definire";
+          default: return "";
+      }
   };
 
   const getStatusStyles = (status: string) => {
@@ -217,115 +235,144 @@ export const PracticesList: React.FC = () => {
     </div>
   );
 
-  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento elenco...</div>;
+  if (loading) return <div className="p-20 text-center"><div className="w-10 h-10 border-4 border-red-600 border-t-transparent animate-spin rounded-full mx-auto"></div><p className="mt-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Sincronizzazione dati...</p></div>;
   if (!user) return null;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">Elenco <span className="text-red-600">Pratiche</span></h2>
-            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Gestione operativa centralizzata</p>
+            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">
+              {adminView ? <span className="text-red-600">Vista Admin</span> : "Elenco Pratiche"}
+            </h2>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">
+              {adminView ? `Filtrato per: ${getAdminViewTitle()}` : "Gestione operativa centralizzata"}
+            </p>
         </div>
-        <Link 
-          to="/practices/new" 
-          className="w-full md:w-auto text-center flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
-        >
-          <Plus size={18} />
-          Nuova Pratica
-        </Link>
-      </div>
-
-      {/* Control Bar */}
-      <div className="bg-white p-4 shadow-xl border border-gray-100 rounded-3xl space-y-4">
-        <div className="flex flex-col lg:flex-row gap-4 items-center">
-            <div className="flex-1 w-full relative group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-red-600 transition-colors w-5 h-5" />
-                <input 
-                    type="text" 
-                    placeholder="Cerca cliente, partita iva o provider..." 
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 border border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded-2xl text-sm font-semibold transition-all shadow-inner"
-                />
-            </div>
-
-            {(user?.isAdmin || user?.isTeamLeader) && (
-                <div className="w-full lg:w-72 relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-4 h-4" />
-                    <select 
-                        value={localAgentFilter}
-                        onChange={(e) => setLocalAgentFilter(e.target.value)}
-                        className="w-full pl-10 pr-4 py-4 bg-gray-900 text-white text-xs font-black uppercase tracking-widest border-none outline-none rounded-2xl cursor-pointer hover:bg-black transition-colors"
-                    >
-                        <option value="all">TUTTI GLI AGENTI</option>
-                        {agents.map(a => <option key={a.id} value={a.id}>{a.nome.toUpperCase()}</option>)}
-                    </select>
-                </div>
-            )}
-
-            <div className="flex gap-2 w-full lg:w-auto">
-                <button 
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${showFilters || countActiveFilters() > 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                >
-                    <Filter size={16} />
-                    {showFilters ? 'Chiudi Filtri' : 'Filtri Avanzati'}
-                    {countActiveFilters() > 0 && <span className="bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[8px]">{countActiveFilters()}</span>}
-                </button>
-                {countActiveFilters() > 0 && (
-                    <button 
-                        onClick={resetFilters}
-                        className="p-4 bg-gray-50 text-gray-400 hover:text-red-600 rounded-2xl transition-colors border border-gray-100"
-                        title="Resetta Filtri"
-                    >
-                        <RotateCcw size={18} />
-                    </button>
-                )}
-            </div>
-        </div>
-
-        {/* Collapsible Filters */}
-        {showFilters && (
-            <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 animate-in slide-in-from-top-4 duration-300">
-                <FilterSelect 
-                    label="Stato Trattativa" 
-                    icon={Briefcase}
-                    value={localDealFilter} 
-                    onChange={setLocalDealFilter}
-                    options={Object.values(DealStatus).map(v => ({val: v, label: v}))}
-                />
-                <FilterSelect 
-                    label="Stato Affidamento" 
-                    icon={ShieldCheck}
-                    value={localCreditFilter} 
-                    onChange={setLocalCreditFilter}
-                    options={Object.values(CreditStatus).map(v => ({val: v, label: v}))}
-                />
-                <FilterSelect 
-                    label="Stato Ordine" 
-                    icon={ShoppingCart}
-                    value={localOrderFilter} 
-                    onChange={setLocalOrderFilter}
-                    options={Object.values(OrderStatus).map(v => ({val: v, label: v}))}
-                />
-                <FilterSelect 
-                    label="Fornitore Provider" 
-                    icon={Briefcase}
-                    value={localProviderFilter} 
-                    onChange={setLocalProviderFilter}
-                    options={providers.map(p => ({val: p.name, label: p.name}))}
-                />
-                <FilterSelect 
-                    label="Anno Pratica" 
-                    icon={Calendar}
-                    value={localYearFilter} 
-                    onChange={setLocalYearFilter}
-                    options={[2024, 2025, 2026].map(y => ({val: y.toString(), label: y.toString()}))}
-                />
-            </div>
+        {!adminView && (
+          <Link 
+            to="/practices/new" 
+            className="w-full md:w-auto text-center flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
+          >
+            <Plus size={18} />
+            Nuova Pratica
+          </Link>
         )}
       </div>
+
+      {/* Admin View Banner */}
+      {adminView && (
+          <div className="bg-red-600 text-white px-6 py-4 rounded-3xl shadow-xl shadow-red-600/20 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-4">
+                  <div className="bg-white/20 p-2.5 rounded-2xl">
+                      <ShieldAlert size={24} />
+                  </div>
+                  <div>
+                      <h4 className="font-black uppercase tracking-tight text-sm">Vista Speciale: {getAdminViewTitle()}</h4>
+                      <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Risultati filtrati secondo i parametri admin selezionati</p>
+                  </div>
+              </div>
+              <button 
+                  onClick={resetFilters}
+                  className="bg-black/20 hover:bg-black/40 text-white px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-white/20 flex items-center gap-2"
+              >
+                  <RotateCcw size={14} /> Esci dalla Vista
+              </button>
+          </div>
+      )}
+
+      {/* Control Bar - Hidden in Admin View to focus on results */}
+      {!adminView && (
+        <div className="bg-white p-4 shadow-xl border border-gray-100 rounded-3xl space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+              <div className="flex-1 w-full relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-red-600 transition-colors w-5 h-5" />
+                  <input 
+                      type="text" 
+                      placeholder="Cerca cliente, partita iva o provider..." 
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 border border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-gray-800 rounded-2xl text-sm font-semibold transition-all shadow-inner"
+                  />
+              </div>
+
+              {(user?.isAdmin || user?.isTeamLeader) && (
+                  <div className="w-full lg:w-72 relative">
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-4 h-4" />
+                      <select 
+                          value={localAgentFilter}
+                          onChange={(e) => setLocalAgentFilter(e.target.value)}
+                          className="w-full pl-10 pr-4 py-4 bg-gray-900 text-white text-xs font-black uppercase tracking-widest border-none outline-none rounded-2xl cursor-pointer hover:bg-black transition-colors"
+                      >
+                          <option value="all">TUTTI GLI AGENTI</option>
+                          {agents.map(a => <option key={a.id} value={a.id}>{a.nome.toUpperCase()}</option>)}
+                      </select>
+                  </div>
+              )}
+
+              <div className="flex gap-2 w-full lg:w-auto">
+                  <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${showFilters || countActiveFilters() > 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                  >
+                      <Filter size={16} />
+                      {showFilters ? 'Chiudi Filtri' : 'Filtri Avanzati'}
+                      {countActiveFilters() > 0 && <span className="bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-[8px]">{countActiveFilters()}</span>}
+                  </button>
+                  {countActiveFilters() > 0 && (
+                      <button 
+                          onClick={resetFilters}
+                          className="p-4 bg-gray-50 text-gray-400 hover:text-red-600 rounded-2xl transition-colors border border-gray-100"
+                          title="Resetta Filtri"
+                      >
+                          <RotateCcw size={18} />
+                      </button>
+                  )}
+              </div>
+          </div>
+
+          {/* Collapsible Filters */}
+          {showFilters && (
+              <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 animate-in slide-in-from-top-4 duration-300">
+                  <FilterSelect 
+                      label="Stato Trattativa" 
+                      icon={Briefcase}
+                      value={localDealFilter} 
+                      onChange={setLocalDealFilter}
+                      options={Object.values(DealStatus).map(v => ({val: v, label: v}))}
+                  />
+                  <FilterSelect 
+                      label="Stato Affidamento" 
+                      icon={ShieldCheck}
+                      value={localCreditFilter} 
+                      onChange={setLocalCreditFilter}
+                      options={Object.values(CreditStatus).map(v => ({val: v, label: v}))}
+                  />
+                  <FilterSelect 
+                      label="Stato Ordine" 
+                      icon={ShoppingCart}
+                      value={localOrderFilter} 
+                      onChange={setLocalOrderFilter}
+                      options={Object.values(OrderStatus).map(v => ({val: v, label: v}))}
+                  />
+                  <FilterSelect 
+                      label="Fornitore Provider" 
+                      icon={Briefcase}
+                      value={localProviderFilter} 
+                      onChange={setLocalProviderFilter}
+                      options={providers.map(p => ({val: p.name, label: p.name}))}
+                  />
+                  <FilterSelect 
+                      label="Anno Pratica" 
+                      icon={Calendar}
+                      value={localYearFilter} 
+                      onChange={setLocalYearFilter}
+                      options={[2024, 2025, 2026].map(y => ({val: y.toString(), label: y.toString()}))}
+                  />
+              </div>
+          )}
+        </div>
+      )}
 
       {/* Mobile ListView */}
       <div className="md:hidden space-y-4">
@@ -341,6 +388,7 @@ export const PracticesList: React.FC = () => {
                         <div className="flex-1">
                              <div className="flex items-center gap-2 mb-2">
                                 <TypeIcon type={practice.tipoTrattativa} />
+                                {practice.isLocked && <ShieldAlert size={14} className="text-red-600" title="Verificata / Locked" />}
                                 {(user?.isAdmin || user?.isTeamLeader) && (
                                     <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase tracking-widest">
                                         <User size={10} /> {practice.agentName}
@@ -383,6 +431,7 @@ export const PracticesList: React.FC = () => {
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
+                <th className="w-16 px-6 py-5 text-center">V</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -412,6 +461,17 @@ export const PracticesList: React.FC = () => {
                   <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
                   <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
                   <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
+                  <td className="px-6 py-5 text-center">
+                      {practice.isLocked ? (
+                        <div className="bg-red-600 text-white p-1 rounded-md inline-block shadow-sm" title="Pratica Verificata / Bloccata">
+                            <ShieldAlert size={12} />
+                        </div>
+                      ) : (
+                        <div className="bg-gray-100 text-gray-300 p-1 rounded-md inline-block" title="Pratica non ancora verificata">
+                            <ShieldAlert size={12} />
+                        </div>
+                      )}
+                  </td>
                 </tr>
               ))}
             </tbody>

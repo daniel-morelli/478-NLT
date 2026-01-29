@@ -43,7 +43,7 @@ export const PracticeTimeline: React.FC<Props> = ({ practice, reminders }) => {
     events.push({
       date: new Date(practice.data),
       title: 'Apertura Pratica',
-      description: `Cliente: ${practice.cliente || 'N/D'} • Provider: ${practice.provider || 'N/D'}`,
+      description: `Cliente: ${practice.customerData?.nome || 'N/D'} • Provider: ${practice.provider || 'N/D'}`,
       details: (
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-gray-50">
           <DetailRow icon={Car} label="Veicoli" value={practice.numeroVeicoli || 0} />
@@ -57,17 +57,22 @@ export const PracticeTimeline: React.FC<Props> = ({ practice, reminders }) => {
     });
   }
 
-  // 2. Affidamento
+  // 2. Affidamento (Calcolo totali dai veicoli)
   if (practice.dataAffidamento) {
+    const vList = practice.veicoliAffidamento || [];
+    const count = vList.length;
+    const listino = vList.reduce((sum, v) => sum + (v.valoreListino || 0), 0);
+    const provvigione = vList.reduce((sum, v) => sum + (v.provvigione || 0), 0);
+
     events.push({
       date: new Date(practice.dataAffidamento),
       title: 'Fase Affidamento',
       description: `Esito: ${practice.statoAffidamento || 'In Attesa'}`,
       details: (
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-gray-50">
-          <DetailRow icon={Car} label="Veicoli" value={practice.numeroVeicoliAffidamento || 0} />
-          <DetailRow icon={Euro} label="Listino" value={formatCurrency(practice.valoreListinoAffidamento)} />
-          <DetailRow icon={Euro} label="Provvigione" value={formatCurrency(practice.valoreProvvigioneAffidamento)} />
+          <DetailRow icon={Car} label="Veicoli" value={count} />
+          <DetailRow icon={Euro} label="Listino" value={formatCurrency(listino)} />
+          <DetailRow icon={Euro} label="Provvigione" value={formatCurrency(provvigione)} />
         </div>
       ),
       type: 'status',
@@ -76,17 +81,22 @@ export const PracticeTimeline: React.FC<Props> = ({ practice, reminders }) => {
     });
   }
 
-  // 3. Ordine
+  // 3. Ordine (Calcolo totali dai veicoli)
   if (practice.dataOrdine) {
+    const vList = practice.veicoliOrdine || [];
+    const count = vList.length;
+    const listino = vList.reduce((sum, v) => sum + (v.valoreListino || 0), 0);
+    const provvigione = vList.reduce((sum, v) => sum + (v.provvigione || 0), 0);
+
     events.push({
       date: new Date(practice.dataOrdine),
       title: 'Ordine Eseguito',
       description: `Stato: ${practice.statoOrdine || 'Inviato'}`,
       details: (
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 pt-2 border-t border-gray-50">
-          <DetailRow icon={Car} label="Veicoli" value={practice.numeroVeicoliOrdinati || 0} />
-          <DetailRow icon={Euro} label="Listino" value={formatCurrency(practice.valoreListinoOrdinato)} />
-          <DetailRow icon={Euro} label="Provv. Finale" value={formatCurrency(practice.valoreProvvigioneTotale)} />
+          <DetailRow icon={Car} label="Veicoli" value={count} />
+          <DetailRow icon={Euro} label="Listino" value={formatCurrency(listino)} />
+          <DetailRow icon={Euro} label="Provv. Finale" value={formatCurrency(provvigione)} />
         </div>
       ),
       type: 'status',

@@ -68,13 +68,7 @@ export const PracticeForm: React.FC = () => {
     valoreTotale: undefined,
     valoreListinoTrattativa: undefined,
     mesePrevistoChiusura: '',
-    valoreListinoAffidamento: undefined,
-    valoreProvvigioneAffidamento: undefined,
-    numeroVeicoliAffidamento: undefined,
     veicoliAffidamento: [],
-    valoreListinoOrdinato: undefined,
-    numeroVeicoliOrdinati: undefined,
-    valoreProvvigioneTotale: undefined,
     veicoliOrdine: [],
     provider: '',
     annotazioniTrattativa: '',
@@ -87,6 +81,26 @@ export const PracticeForm: React.FC = () => {
 
   const isPowerUser = user?.isAdmin || user?.isTeamLeader;
   const isPracticeLocked = formData.isLocked && !isPowerUser;
+
+  // Calcoli automatici Affidamento
+  const autoCreditTotals = useMemo(() => {
+    const list = formData.veicoliAffidamento || [];
+    return {
+        count: list.length,
+        listino: list.reduce((sum, v) => sum + (v.valoreListino || 0), 0),
+        provvigione: list.reduce((sum, v) => sum + (v.provvigione || 0), 0)
+    };
+  }, [formData.veicoliAffidamento]);
+
+  // Calcoli automatici Ordine
+  const autoOrderTotals = useMemo(() => {
+    const list = formData.veicoliOrdine || [];
+    return {
+        count: list.length,
+        listino: list.reduce((sum, v) => sum + (v.valoreListino || 0), 0),
+        provvigione: list.reduce((sum, v) => sum + (v.provvigione || 0), 0)
+    };
+  }, [formData.veicoliOrdine]);
 
   useEffect(() => {
     DbService.getAllProviders(true).then(setProviders);
@@ -250,17 +264,6 @@ export const PracticeForm: React.FC = () => {
     }));
   };
 
-  const syncCreditTotals = () => {
-    if (isPracticeLocked) return;
-    const list = formData.veicoliAffidamento || [];
-    setFormData(prev => ({
-        ...prev,
-        numeroVeicoliAffidamento: list.length,
-        valoreListinoAffidamento: list.reduce((sum, v) => sum + (v.valoreListino || 0), 0),
-        valoreProvvigioneAffidamento: list.reduce((sum, v) => sum + (v.provvigione || 0), 0)
-    }));
-  };
-
   const addVehicleOrder = () => {
     if (isPracticeLocked) return;
     const newVehicle: VehicleOrder = { id: crypto.randomUUID(), marca: '', modello: '', valoreListino: 0, provvigione: 0, durataMesi: 0, km: 0, anticipo: 0, dataConsegna: '' };
@@ -280,17 +283,6 @@ export const PracticeForm: React.FC = () => {
     }));
   };
 
-  const syncOrderTotals = () => {
-    if (isPracticeLocked) return;
-    const list = formData.veicoliOrdine || [];
-    setFormData(prev => ({
-        ...prev,
-        numeroVeicoliOrdinati: list.length,
-        valoreListinoOrdinato: list.reduce((sum, v) => sum + (v.valoreListino || 0), 0),
-        valoreProvvigioneTotale: list.reduce((sum, v) => sum + (v.provvigione || 0), 0)
-    }));
-  };
-
   const isAffidamentoEnabled = (formData.statoTrattativa === DealStatus.IN_CORSO || formData.statoTrattativa === DealStatus.CHIUSA) && !isPracticeLocked;
   const isOrdineEnabled = (formData.statoAffidamento === CreditStatus.APPROVATO || formData.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI) && !isPracticeLocked;
 
@@ -300,16 +292,16 @@ export const PracticeForm: React.FC = () => {
   const CompactNumberInputStyle = `${CompactInputStyle} text-right font-mono`;
   const LabelStyle = "block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1";
 
-  const CurrencyInput = ({ name, value, onChange, disabled, label, highlight }: { name: string, value: number | undefined, onChange: (name: string, val: number | undefined) => void, disabled?: boolean, label: string, highlight?: boolean }) => {
+  const CurrencyInput = ({ name, value, onChange, disabled, label, highlight }: { name: string, value: number | undefined, onChange?: (name: string, val: number | undefined) => void, disabled?: boolean, label: string, highlight?: boolean }) => {
     const [localValue, setLocalValue] = useState(formatIT(value));
     const [isFocused, setIsFocused] = useState(false);
     useEffect(() => { if (!isFocused) setLocalValue(formatIT(value)); }, [value, isFocused]);
-    const handleFocus = () => { setIsFocused(true); if (value !== undefined) setLocalValue(value.toString().replace('.', ',')); };
-    const handleBlur = () => { setIsFocused(false); const numeric = parseIT(localValue); onChange(name, numeric); };
+    const handleFocus = () => { if (onChange) setIsFocused(true); if (value !== undefined && onChange) setLocalValue(value.toString().replace('.', ',')); };
+    const handleBlur = () => { setIsFocused(false); if (onChange) { const numeric = parseIT(localValue); onChange(name, numeric); } };
     return (
       <div className="space-y-1">
         <label className={LabelStyle}>{label}</label>
-        <input type="text" disabled={disabled || isPracticeLocked} value={localValue} onFocus={handleFocus} onBlur={handleBlur} onChange={(e) => setLocalValue(e.target.value)} className={`${NumberInputStyle} ${highlight ? 'border-red-100 bg-red-50/20' : ''}`} placeholder="0,00" />
+        <input type="text" readOnly={!onChange} disabled={disabled || isPracticeLocked} value={localValue} onFocus={handleFocus} onBlur={handleBlur} onChange={(e) => setLocalValue(e.target.value)} className={`${NumberInputStyle} ${highlight ? 'border-red-100 bg-red-50/20' : ''} ${!onChange ? 'bg-gray-50 text-gray-500 font-black' : ''}`} placeholder="0,00" />
       </div>
     );
   };
@@ -327,7 +319,6 @@ export const PracticeForm: React.FC = () => {
     );
   };
 
-  // LOGICA COLORI STATO TABS
   const getDealColor = () => {
     if (formData.statoTrattativa === DealStatus.IN_CORSO) return 'bg-orange-500';
     if (formData.statoTrattativa === DealStatus.CHIUSA) return 'bg-emerald-500';
@@ -419,7 +410,7 @@ export const PracticeForm: React.FC = () => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 relative">
-                                    <label className={LabelStyle}>Ricerca Anagrafica Cliente {formData.agentId ? ` (Agente: ${agents.find(a => a.id === formData.agentId)?.nome || 'Selezionato'})` : ''}</label>
+                                    <label className={LabelStyle}>Ricerca Anagrafica Cliente</label>
                                     <div className="relative group"><Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder={formData.agentId ? "Cerca cliente..." : "Seleziona prima un agente..."} disabled={!formData.agentId || isPracticeLocked} value={customerSearch} onChange={(e) => {setCustomerSearch(e.target.value); setShowCustomerResults(true);}} onFocus={() => setShowCustomerResults(true)} className={`${InputStyle} pl-11 ${(!formData.agentId || isPracticeLocked) ? 'opacity-50 cursor-not-allowed' : ''}`} />{showCustomerResults && formData.agentId && customerSearch.length > 0 && !isPracticeLocked && (
                                             <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 shadow-2xl z-[100] rounded-2xl max-h-60 overflow-y-auto">{filteredCustomers.length > 0 ? (filteredCustomers.map(c => (<div key={c.id} onClick={() => handleSelectCustomer(c)} className="p-4 hover:bg-red-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between group"><div className="flex flex-col"><span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span><span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span></div><div className="flex items-center gap-2">{c.cell && (<a href={`tel:${c.cell}`} onClick={(e) => e.stopPropagation()} className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"><PhoneCall size={14} /></a>)}<Briefcase size={14} className="text-gray-200" /></div></div>))) : (<div onClick={() => {setIsAddingNewCustomer(true); setNewCustomer({...newCustomer, nome: customerSearch}); setShowCustomerResults(false);}} className="p-6 text-center cursor-pointer hover:bg-gray-50"><UserPlus size={24} className="mx-auto text-red-600 mb-2" /><span className="text-xs font-black text-gray-900 uppercase tracking-widest block">" {customerSearch} "</span><span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Anagrafica non trovata. Clicca per censirla.</span></div>)}</div>
                                         )}</div>
@@ -438,7 +429,7 @@ export const PracticeForm: React.FC = () => {
 
                 {activeTab === 'affidamento' && (
                     <div className={`space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-300 ${(!isAffidamentoEnabled || isPracticeLocked) ? 'opacity-50' : ''}`}>
-                        <div className="max-w-5xl mx-auto space-y-12"><div className="flex items-center justify-between border-b border-gray-100 pb-4"><h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2"><ShieldCheck size={16} className="text-red-600"/> ISTRUTTORIA CREDITIZIA</h3>{(!isAffidamentoEnabled || isPracticeLocked) && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 uppercase"><Lock size={12}/> Bloccata</div>}</div><div className="space-y-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><label className={LabelStyle}>Esito</label><select disabled={!isAffidamentoEnabled || isPracticeLocked} name="statoAffidamento" value={formData.statoAffidamento} onChange={handleChange} className={InputStyle}><option value="">-- IN ATTESA --</option>{Object.values(CreditStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div><div><label className={LabelStyle}>Data Esito</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} /></div></div><div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli</h4><button type="button" disabled={!isAffidamentoEnabled || isPracticeLocked} onClick={addVehicleCredit} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden"><table className="w-full text-left"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliAffidamento?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleCredit(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleCredit(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleCredit(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleCredit(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleCredit(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div><div className="flex justify-end"><button type="button" onClick={syncCreditTotals} className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><RefreshCw size={12}/> Sincronizza Totali</button></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Veicoli (Agg.)</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" name="numeroVeicoliAffidamento" value={formData.numeroVeicoliAffidamento ?? ''} onChange={handleChange} className={NumberInputStyle} /></div><CurrencyInput label="Listino (Agg.)" name="valoreListinoAffidamento" disabled={!isAffidamentoEnabled || isPracticeLocked} value={formData.valoreListinoAffidamento} onChange={handleCurrencyChange} /><CurrencyInput label="Provv. (Agg.)" name="valoreProvvigioneAffidamento" disabled={!isAffidamentoEnabled || isPracticeLocked} value={formData.valoreProvvigioneAffidamento} onChange={handleCurrencyChange} highlight /></div><textarea disabled={!isAffidamentoEnabled || isPracticeLocked} name="annotazioniAffidamento" rows={4} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} placeholder="Note credito..." /></div></div>
+                        <div className="max-w-5xl mx-auto space-y-12"><div className="flex items-center justify-between border-b border-gray-100 pb-4"><h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2"><ShieldCheck size={16} className="text-red-600"/> ISTRUTTORIA CREDITIZIA</h3>{(!isAffidamentoEnabled || isPracticeLocked) && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 uppercase"><Lock size={12}/> Bloccata</div>}</div><div className="space-y-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><div><label className={LabelStyle}>Esito</label><select disabled={!isAffidamentoEnabled || isPracticeLocked} name="statoAffidamento" value={formData.statoAffidamento} onChange={handleChange} className={InputStyle}><option value="">-- IN ATTESA --</option>{Object.values(CreditStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div><div><label className={LabelStyle}>Data Esito</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} /></div></div><div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli</h4><button type="button" disabled={!isAffidamentoEnabled || isPracticeLocked} onClick={addVehicleCredit} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden"><table className="w-full text-left"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliAffidamento?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleCredit(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleCredit(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleCredit(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleCredit(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleCredit(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Veicoli (Auto)</label><input readOnly disabled type="number" value={autoCreditTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div>{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_listino_affidamento" label="Listino (Auto)" value={autoCreditTotals.listino} disabled={!isAffidamentoEnabled || isPracticeLocked} />{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_provvigione_affidamento" label="Provv. (Auto)" value={autoCreditTotals.provvigione} disabled={!isAffidamentoEnabled || isPracticeLocked} highlight /></div><textarea disabled={!isAffidamentoEnabled || isPracticeLocked} name="annotazioniAffidamento" rows={4} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} placeholder="Note credito..." /></div></div>
                     </div>
                 )}
 
@@ -450,14 +441,14 @@ export const PracticeForm: React.FC = () => {
                                 <div><label className={LabelStyle}>Stato Ordine</label><select disabled={!isOrdineEnabled || isPracticeLocked} name="statoOrdine" value={formData.statoOrdine} onChange={handleChange} className={InputStyle}><option value="">-- SELEZIONA --</option>{Object.values(OrderStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div>
                                 <div><label className={LabelStyle}>Data Firma</label><input disabled={!isOrdineEnabled || isPracticeLocked} type="date" name="dataOrdine" value={formData.dataOrdine || ''} onChange={handleChange} className={InputStyle} /></div>
                             </div>
-                            <div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Ordine</h4><button type="button" disabled={!isOrdineEnabled || isPracticeLocked} onClick={addVehicleOrder} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 text-center">Mesi</th><th className="px-4 py-3 text-right">KM</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliOrdine?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleOrder(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleOrder(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleOrder(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleOrder(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.durataMesi || ''} onChange={e => updateVehicleOrder(v.id, 'durataMesi', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.km || ''} onChange={e => updateVehicleOrder(v.id, 'km', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleOrder(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div><div className="flex justify-end"><button type="button" onClick={syncOrderTotals} className="text-[9px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2"><RefreshCw size={12}/> Sincronizza Totali</button></div></div>
-                            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Ordinati (Agg.)</label><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" name="numeroVeicoliOrdinati" value={formData.numeroVeicoliOrdinati ?? ''} onChange={handleChange} className={NumberInputStyle} /></div><CurrencyInput label="Listino (Agg.)" name="valoreListinoOrdinato" disabled={!isOrdineEnabled || isPracticeLocked} value={formData.valoreListinoOrdinato} onChange={handleCurrencyChange} /><CurrencyInput label="Provv. (Agg.)" name="valoreProvvigioneTotale" disabled={!isOrdineEnabled || isPracticeLocked} value={formData.valoreProvvigioneTotale} onChange={handleCurrencyChange} highlight /></div>
+                            <div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Ordine</h4><button type="button" disabled={!isOrdineEnabled || isPracticeLocked} onClick={addVehicleOrder} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 text-center">Mesi</th><th className="px-4 py-3 text-right">KM</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliOrdine?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleOrder(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleOrder(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleOrder(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleOrder(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.durataMesi || ''} onChange={e => updateVehicleOrder(v.id, 'durataMesi', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.km || ''} onChange={e => updateVehicleOrder(v.id, 'km', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleOrder(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div></div>
+                            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Ordinati (Auto)</label><input readOnly disabled type="number" value={autoOrderTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div>{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_listino_ordine" label="Listino (Auto)" value={autoOrderTotals.listino} disabled={!isOrdineEnabled || isPracticeLocked} />{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_provvigione_ordine" label="Provv. (Auto)" value={autoOrderTotals.provvigione} disabled={!isOrdineEnabled || isPracticeLocked} highlight /></div>
                             <div className="max-w-5xl mx-auto w-full space-y-8">
                                 <div><label className={LabelStyle}>Note Ordine</label><textarea disabled={!isOrdineEnabled || isPracticeLocked} name="annotazioneOrdine" rows={5} value={formData.annotazioneOrdine || ''} onChange={handleChange} className={InputStyle} /></div>
                                 {isPowerUser && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-gray-50 p-6 rounded-3xl border border-gray-200">
                                         <div><label className={LabelStyle}>Rappel</label><select disabled={!isOrdineEnabled || isPracticeLocked} name="validoRappel" value={formData.validoRappel || ''} onChange={handleChange} className={`${InputStyle} font-black uppercase`}><option value="">DA DEFINIRE</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
-                                        <div className="flex flex-col justify-end"><label className={`${LabelStyle} flex items-center gap-2`}><Lock size={12}/> Blocco Pratica</label><button type="button" onClick={() => setFormData(prev => ({...prev, isLocked: !prev.isLocked}))} className={`w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${formData.isLocked ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'bg-green-600 text-white shadow-lg shadow-green-600/30'}`}>{formData.isLocked ? <><Lock size={18}/> Sblocca</> : <><Unlock size={18}/> Blocca Agente</>}</button></div>
+                                        <div className="flex flex-col justify-end"><label className={`${LabelStyle} flex items-center gap-2`}><Lock size={12}/> Blocco Pratica</label><button type="button" onClick={() => setFormData(prev => ({...prev, isLocked: !prev.isLocked}))} className={`w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${formData.isLocked ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-green-600 text-white shadow-lg shadow-green-600/30'}`}>{formData.isLocked ? <><Lock size={18}/> Sblocca</> : <><Unlock size={18}/> Blocca Agente</>}</button></div>
                                     </div>
                                 )}
                             </div>

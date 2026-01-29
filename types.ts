@@ -80,22 +80,16 @@ export interface Practice {
   
   valoreListinoTrattativa: number;
   mesePrevistoChiusura: string;
-  valoreListinoAffidamento: number;
 
   statoTrattativa: DealStatus;
   annotazioniTrattativa: string;
 
   dataAffidamento?: string;
-  valoreProvvigioneAffidamento?: number;
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;
-  numeroVeicoliAffidamento: number;
   veicoliAffidamento: VehicleCredit[];
 
   dataOrdine?: string;
-  numeroVeicoliOrdinati?: number;
-  valoreProvvigioneTotale?: number;
-  valoreListinoOrdinato: number;
   statoOrdine: OrderStatus | '';
   annotazioneOrdine: string;
   veicoliOrdine: VehicleOrder[];
