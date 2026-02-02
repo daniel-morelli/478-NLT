@@ -84,6 +84,7 @@ export interface Practice {
   statoTrattativa: DealStatus;
   annotazioniTrattativa: string;
 
+  dataRichiestaAffidamento?: string;
   dataAffidamento?: string;
   statoAffidamento: CreditStatus | '';
   annotazioniAffidamento: string;

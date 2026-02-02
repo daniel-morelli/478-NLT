@@ -45,11 +45,12 @@ const fromDbPractice = (p: any): Practice => ({
   tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
-  valoreListinoTrattativa: p.valore_listino_trattativa ?? 0,
+  valoreListinoTrattativa: p.valore_listino_attiva ?? 0,
   mesePrevistoChiusura: p.mese_previsto_chiusura ?? '',
   veicoliAffidamento: p.veicoli_affidamento || [],
   statoTrattativa: p.stato_trattativa,
   annotazioniTrattativa: p.annotazioni_trattativa ?? '',
+  dataRichiestaAffidamento: p.data_richiesta_affidamento,
   dataAffidamento: p.data_affidamento,
   statoAffidamento: p.stato_affidamento ?? '',
   annotazioniAffidamento: p.annotazioni_affidamento ?? '',
@@ -75,14 +76,19 @@ const toDbPractice = (p: Partial<Practice>) => {
     mese_previsto_chiusura: p.mesePrevistoChiusura,
     veicoli_affidamento: p.veicoliAffidamento,
     stato_trattativa: p.statoTrattativa,
+    // Corrected property names to match the Practice interface
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
+    data_richiesta_affidamento: p.dataRichiestaAffidamento,
     data_affidamento: p.dataAffidamento,
     stato_affidamento: p.statoAffidamento || null,
+    // Corrected property names to match the Practice interface
     annotazioni_affidamento: p.annotazioniAffidamento ?? '',
     data_ordine: p.dataOrdine,
     veicoli_ordine: p.veicoliOrdine,
     stato_ordine: p.statoOrdine || null,
+    // Corrected property names to match the Practice interface
     annotazione_ordine: p.annotazioneOrdine ?? '',
+    // Corrected property names to match the Practice interface
     valido_rappel: p.validoRappel || null,
     is_locked: p.isLocked ?? false,
     deleted_at: p.deletedAt

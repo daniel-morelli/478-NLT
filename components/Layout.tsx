@@ -19,8 +19,8 @@ import {
   AlertCircle,
   Clock,
   Zap,
-  ShieldAlert,
-  Settings
+  Settings,
+  Database
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -153,6 +153,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
                     {user.isAdmin && <NavItem to="/agents" icon={Users} label="Gestione Agenti" />}
                     <NavItem to="/providers" icon={Briefcase} label="Gestione Provider" />
+                    {user.isAdmin && <NavItem to="/backup" icon={Database} label="Backup & Recovery" />}
                   </div>
                 )}
               </div>

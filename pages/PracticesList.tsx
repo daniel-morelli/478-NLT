@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell } from 'lucide-react';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -20,6 +20,7 @@ export const PracticesList: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [practices, setPractices] = useState<Practice[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [filtered, setFiltered] = useState<Practice[]>([]);
@@ -34,6 +35,7 @@ export const PracticesList: React.FC = () => {
   const [localDealFilter, setLocalDealFilter] = useState('all');
   const [localCreditFilter, setLocalCreditFilter] = useState('all');
   const [localOrderFilter, setLocalOrderFilter] = useState('all');
+  const [localReminderFilter, setLocalReminderFilter] = useState('all');
   
   // Vista Admin Specifica
   const adminView = searchParams.get('adminView');
@@ -53,6 +55,7 @@ export const PracticesList: React.FC = () => {
             setLocalDealFilter(parsed.deal || 'all');
             setLocalCreditFilter(parsed.credit || 'all');
             setLocalOrderFilter(parsed.order || 'all');
+            setLocalReminderFilter(parsed.reminder || 'all');
             
             // Se c'era una adminView salvata, la rimettiamo nell'URL
             if (parsed.adminView) {
@@ -78,6 +81,12 @@ export const PracticesList: React.FC = () => {
             
             setPractices(practicesData);
             setProviders(providersData);
+
+            if (practicesData.length > 0) {
+                const pIds = practicesData.map(p => p.id);
+                const remindersData = await DbService.getRemindersForPractices(pIds);
+                setReminders(remindersData);
+            }
             
             if (user.isAdmin || user.isTeamLeader) {
                 const agentsData = await DbService.getAllAgents(true);
@@ -93,6 +102,7 @@ export const PracticesList: React.FC = () => {
             if (filterType === 'statoTrattativa') setLocalDealFilter(filterValue || 'all');
             if (filterType === 'statoAffidamento') setLocalCreditFilter(filterValue || 'all');
             if (filterType === 'statoOrdine') setLocalOrderFilter(filterValue || 'all');
+            if (filterType === 'reminder') setLocalReminderFilter(filterValue || 'all');
         } catch (e) {
             console.error(e);
         } finally {
@@ -117,10 +127,11 @@ export const PracticesList: React.FC = () => {
            deal: localDealFilter,
            credit: localCreditFilter,
            order: localOrderFilter,
+           reminder: localReminderFilter,
            adminView: adminView || undefined // Salviamo anche la vista admin
        }));
     }
-  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, practices, loading, adminView]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, practices, reminders, loading, adminView]);
 
   const applyFilters = () => {
     let res = [...practices];
@@ -156,6 +167,21 @@ export const PracticesList: React.FC = () => {
         if (localDealFilter !== 'all') res = res.filter(p => p.statoTrattativa === localDealFilter);
         if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
         if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
+
+        // Filtro Promemoria (Nuovo)
+        if (localReminderFilter !== 'all') {
+            const today = new Date();
+            res = res.filter(p => {
+                const pReminders = reminders.filter(r => r.practiceId === p.id && r.status === 'aperto');
+                if (localReminderFilter === 'future') {
+                    return pReminders.some(r => new Date(r.expirationDate) >= today);
+                }
+                if (localReminderFilter === 'expired') {
+                    return pReminders.some(r => new Date(r.expirationDate) < today);
+                }
+                return true;
+            });
+        }
     }
 
     setFiltered(res);
@@ -169,6 +195,7 @@ export const PracticesList: React.FC = () => {
     setLocalDealFilter('all');
     setLocalCreditFilter('all');
     setLocalOrderFilter('all');
+    setLocalReminderFilter('all');
     setSearchParams({});
     sessionStorage.removeItem('nlt_filters_v2');
   };
@@ -181,6 +208,7 @@ export const PracticesList: React.FC = () => {
       if (localDealFilter !== 'all') count++;
       if (localCreditFilter !== 'all') count++;
       if (localOrderFilter !== 'all') count++;
+      if (localReminderFilter !== 'all') count++;
       return count;
   };
 
@@ -370,6 +398,16 @@ export const PracticesList: React.FC = () => {
                       value={localOrderFilter} 
                       onChange={setLocalOrderFilter}
                       options={Object.values(OrderStatus).map(v => ({val: v, label: v}))}
+                  />
+                  <FilterSelect 
+                      label="Promemoria" 
+                      icon={Bell}
+                      value={localReminderFilter} 
+                      onChange={setLocalReminderFilter}
+                      options={[
+                          {val: 'future', label: 'In Programma'},
+                          {val: 'expired', label: 'Scaduti'}
+                      ]}
                   />
                   <FilterSelect 
                       label="Fornitore Provider" 
