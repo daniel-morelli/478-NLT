@@ -45,7 +45,7 @@ const fromDbPractice = (p: any): Practice => ({
   tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
-  valoreListinoTrattativa: p.valore_listino_attiva ?? 0,
+  valoreListinoTrattativa: p.valore_listino_trattativa ?? 0, 
   mesePrevistoChiusura: p.mese_previsto_chiusura ?? '',
   veicoliAffidamento: p.veicoli_affidamento || [],
   statoTrattativa: p.stato_trattativa,
@@ -64,35 +64,34 @@ const fromDbPractice = (p: any): Practice => ({
 });
 
 const toDbPractice = (p: Partial<Practice>) => {
+  // Converte stringhe vuote in null per i campi che il DB si aspetta come DATE o ENUM/NULL
   const data: any = {
     agent_id: p.agentId,
     customer_id: p.customerId,
-    data: p.data,
+    data: p.data || null,
     provider: p.provider,
     tipo_trattativa: p.tipoTrattativa,
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     valore_listino_trattativa: p.valoreListinoTrattativa,
-    mese_previsto_chiusura: p.mesePrevistoChiusura,
+    mese_previsto_chiusura: p.mesePrevistoChiusura || null,
     veicoli_affidamento: p.veicoliAffidamento,
     stato_trattativa: p.statoTrattativa,
-    // Corrected property names to match the Practice interface
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
-    data_richiesta_affidamento: p.dataRichiestaAffidamento,
-    data_affidamento: p.dataAffidamento,
+    data_richiesta_affidamento: p.dataRichiestaAffidamento || null,
+    data_affidamento: p.dataAffidamento || null,
     stato_affidamento: p.statoAffidamento || null,
-    // Corrected property names to match the Practice interface
     annotazioni_affidamento: p.annotazioniAffidamento ?? '',
-    data_ordine: p.dataOrdine,
+    data_ordine: p.dataOrdine || null,
     veicoli_ordine: p.veicoliOrdine,
     stato_ordine: p.statoOrdine || null,
-    // Corrected property names to match the Practice interface
     annotazione_ordine: p.annotazioneOrdine ?? '',
-    // Corrected property names to match the Practice interface
     valido_rappel: p.validoRappel || null,
     is_locked: p.isLocked ?? false,
-    deleted_at: p.deletedAt
+    deleted_at: p.deletedAt || null
   };
+  
+  // Rimuove proprietà undefined
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
   return data;
 };
@@ -227,8 +226,13 @@ export const DbService = {
   savePractice: async (practice: Partial<Practice>): Promise<void> => {
     if (!supabase) return;
     const dbData = toDbPractice(practice);
-    if (practice.id) await supabase.from('nlt_practices').update(dbData).eq('id', practice.id);
-    else await supabase.from('nlt_practices').insert([dbData]);
+    if (practice.id) {
+        const { error } = await supabase.from('nlt_practices').update(dbData).eq('id', practice.id);
+        if (error) throw error;
+    } else {
+        const { error } = await supabase.from('nlt_practices').insert([dbData]);
+        if (error) throw error;
+    }
   },
 
   deletePractice: async (id: string): Promise<void> => {

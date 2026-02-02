@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell, Trash2 } from 'lucide-react';
+import { Modal } from '../components/Modal';
 
 // Utility per formattazione valuta IT
 const formatIT = (val: number | undefined): string => {
@@ -26,6 +27,10 @@ export const PracticesList: React.FC = () => {
   const [filtered, setFiltered] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stato per la cancellazione
+  const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   // Stati Filtri
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
@@ -40,13 +45,14 @@ export const PracticesList: React.FC = () => {
   // Vista Admin Specifica
   const adminView = searchParams.get('adminView');
 
+  const isPowerUser = user?.isAdmin || user?.isTeamLeader;
+
   // 1. CARICAMENTO FILTRI DA SESSION STORAGE ALL'AVVIO
   useEffect(() => {
     const saved = sessionStorage.getItem('nlt_filters_v2');
     if (saved) {
         const parsed = JSON.parse(saved);
         
-        // Se l'URL è vuoto, ripristiniamo tutto (inclusa l'adminView se presente)
         if (!searchParams.toString()) {
             setSearch(parsed.search || '');
             setLocalYearFilter(parsed.year || 'all');
@@ -57,60 +63,56 @@ export const PracticesList: React.FC = () => {
             setLocalOrderFilter(parsed.order || 'all');
             setLocalReminderFilter(parsed.reminder || 'all');
             
-            // Se c'era una adminView salvata, la rimettiamo nell'URL
             if (parsed.adminView) {
                 setSearchParams({ adminView: parsed.adminView });
             }
         } else {
-            // Se l'URL ha già parametri (es. veniamo dal menu admin), 
-            // carichiamo solo gli stati locali ma diamo priorità all'URL
             setSearch(parsed.search || '');
         }
     }
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      const fetchData = async () => {
-        setLoading(true);
-        try {
-            const [practicesData, providersData] = await Promise.all([
-                DbService.getPractices(user),
-                DbService.getAllProviders(false)
-            ]);
-            
-            setPractices(practicesData);
-            setProviders(providersData);
+  const fetchData = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+        const [practicesData, providersData] = await Promise.all([
+            DbService.getPractices(user),
+            DbService.getAllProviders(false)
+        ]);
+        
+        setPractices(practicesData);
+        setProviders(providersData);
 
-            if (practicesData.length > 0) {
-                const pIds = practicesData.map(p => p.id);
-                const remindersData = await DbService.getRemindersForPractices(pIds);
-                setReminders(remindersData);
-            }
-            
-            if (user.isAdmin || user.isTeamLeader) {
-                const agentsData = await DbService.getAllAgents(true);
-                setAgents(agentsData.filter(a => a.isAgent));
-            }
-
-            // Parametri dalla Dashboard (hanno priorità se presenti)
-            const filterType = searchParams.get('filterType');
-            const filterValue = searchParams.get('filterValue');
-            const agentIdParam = searchParams.get('agentId');
-
-            if (agentIdParam) setLocalAgentFilter(agentIdParam);
-            if (filterType === 'statoTrattativa') setLocalDealFilter(filterValue || 'all');
-            if (filterType === 'statoAffidamento') setLocalCreditFilter(filterValue || 'all');
-            if (filterType === 'statoOrdine') setLocalOrderFilter(filterValue || 'all');
-            if (filterType === 'reminder') setLocalReminderFilter(filterValue || 'all');
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
+        if (practicesData.length > 0) {
+            const pIds = practicesData.map(p => p.id);
+            const remindersData = await DbService.getRemindersForPractices(pIds);
+            setReminders(remindersData);
         }
-      };
-      fetchData();
+        
+        if (isPowerUser) {
+            const agentsData = await DbService.getAllAgents(true);
+            setAgents(agentsData.filter(a => a.isAgent));
+        }
+
+        const filterType = searchParams.get('filterType');
+        const filterValue = searchParams.get('filterValue');
+        const agentIdParam = searchParams.get('agentId');
+
+        if (agentIdParam) setLocalAgentFilter(agentIdParam);
+        if (filterType === 'statoTrattativa') setLocalDealFilter(filterValue || 'all');
+        if (filterType === 'statoAffidamento') setLocalCreditFilter(filterValue || 'all');
+        if (filterType === 'statoOrdine') setLocalOrderFilter(filterValue || 'all');
+        if (filterType === 'reminder') setLocalReminderFilter(filterValue || 'all');
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [user, searchParams]);
 
   // 2. SALVATAGGIO FILTRI E APPLICAZIONE
@@ -118,7 +120,6 @@ export const PracticesList: React.FC = () => {
     if (!loading) {
        applyFilters(); 
        
-       // Salviamo sempre lo stato corrente per ritrovarlo al ritorno
        sessionStorage.setItem('nlt_filters_v2', JSON.stringify({
            search,
            year: localYearFilter,
@@ -128,7 +129,7 @@ export const PracticesList: React.FC = () => {
            credit: localCreditFilter,
            order: localOrderFilter,
            reminder: localReminderFilter,
-           adminView: adminView || undefined // Salviamo anche la vista admin
+           adminView: adminView || undefined 
        }));
     }
   }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, practices, reminders, loading, adminView]);
@@ -136,7 +137,6 @@ export const PracticesList: React.FC = () => {
   const applyFilters = () => {
     let res = [...practices];
 
-    // Logica Viste Admin (Parametri URL prioritari)
     if (adminView) {
         switch(adminView) {
             case 'ord_chiuso_trat_aperta':
@@ -153,7 +153,6 @@ export const PracticesList: React.FC = () => {
                 break;
         }
     } else {
-        // Filtri Standard
         if (search) {
           const s = search.toLowerCase();
           res = res.filter(p => (
@@ -168,7 +167,6 @@ export const PracticesList: React.FC = () => {
         if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
         if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
 
-        // Filtro Promemoria (Nuovo)
         if (localReminderFilter !== 'all') {
             const today = new Date();
             res = res.filter(p => {
@@ -198,6 +196,22 @@ export const PracticesList: React.FC = () => {
     setLocalReminderFilter('all');
     setSearchParams({});
     sessionStorage.removeItem('nlt_filters_v2');
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!practiceToDelete || !user?.isAdmin) return;
+    setDeleteLoading(true);
+    try {
+        await DbService.deletePractice(practiceToDelete.id);
+        setPracticeToDelete(null);
+        // Refresh locale della lista
+        fetchData();
+    } catch (e) {
+        console.error("Errore cancellazione:", e);
+        alert("Impossibile eliminare la pratica.");
+    } finally {
+        setDeleteLoading(false);
+    }
   };
 
   const countActiveFilters = () => {
@@ -284,6 +298,17 @@ export const PracticesList: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+      <Modal 
+        isOpen={!!practiceToDelete} 
+        onClose={() => setPracticeToDelete(null)} 
+        onConfirm={handleDeleteConfirmed}
+        title="Elimina Pratica"
+        message={`Sei sicuro di voler eliminare la pratica di "${practiceToDelete?.customerData?.nome}"? L'azione è reversibile solo tramite database.`}
+        type="danger"
+        confirmLabel="Elimina"
+        loading={deleteLoading}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter uppercase leading-none">
@@ -325,7 +350,7 @@ export const PracticesList: React.FC = () => {
           </div>
       )}
 
-      {/* Control Bar - Hidden in Admin View to focus on results */}
+      {/* Control Bar */}
       {!adminView && (
         <div className="bg-white p-4 shadow-xl border border-gray-100 rounded-3xl space-y-4">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
@@ -340,7 +365,7 @@ export const PracticesList: React.FC = () => {
                   />
               </div>
 
-              {(user?.isAdmin || user?.isTeamLeader) && (
+              {isPowerUser && (
                   <div className="w-full lg:w-72 relative">
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 text-red-600 w-4 h-4" />
                       <select 
@@ -375,7 +400,6 @@ export const PracticesList: React.FC = () => {
               </div>
           </div>
 
-          {/* Collapsible Filters */}
           {showFilters && (
               <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 animate-in slide-in-from-top-4 duration-300">
                   <FilterSelect 
@@ -433,13 +457,12 @@ export const PracticesList: React.FC = () => {
         {filtered.map(practice => (
             <div 
               key={practice.id} 
-              onClick={() => navigate(`/practices/${practice.id}`)}
               className="bg-white border border-gray-100 p-6 rounded-[2rem] shadow-sm hover:shadow-xl transition-all cursor-pointer group active:scale-[0.98] relative overflow-hidden"
             >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-full -mr-16 -mt-16 group-hover:bg-red-50 transition-colors z-0"></div>
                 <div className="relative z-10">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
+                        <div className="flex-1" onClick={() => navigate(`/practices/${practice.id}`)}>
                              <div className="flex items-center gap-2 mb-2">
                                 <TypeIcon type={practice.tipoTrattativa} />
                                 {practice.isLocked && (
@@ -447,7 +470,7 @@ export const PracticesList: React.FC = () => {
                                     <ShieldAlert size={14} />
                                   </span>
                                 )}
-                                {(user?.isAdmin || user?.isTeamLeader) && (
+                                {isPowerUser && (
                                     <div className="flex items-center gap-1.5 text-[10px] text-red-600 font-black uppercase tracking-widest">
                                         <User size={10} /> {practice.agentName}
                                     </div>
@@ -459,12 +482,20 @@ export const PracticesList: React.FC = () => {
                                 <span className="flex items-center gap-1"><Briefcase size={12}/> {practice.provider}</span>
                             </div>
                         </div>
-                        <div className="text-right">
+                        <div className="flex flex-col items-end gap-2">
                             <span className="text-sm font-black text-gray-900 block">{formatIT(practice.valoreTotale)}</span>
+                            {user?.isAdmin && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setPracticeToDelete(practice); }}
+                                    className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            )}
                         </div>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-gray-50 mt-4">
+                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 pt-4 border-t border-gray-50 mt-4" onClick={() => navigate(`/practices/${practice.id}`)}>
                         <StatusBadge label="Trattativa" status={practice.statoTrattativa} />
                         <StatusBadge label="Affidamento" status={practice.statoAffidamento} />
                         <StatusBadge label="Ordine" status={practice.statoOrdine} />
@@ -481,7 +512,7 @@ export const PracticesList: React.FC = () => {
             <thead className="bg-black text-white">
               <tr>
                 <th className="w-16 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Tipo</th>
-                {(user?.isAdmin || user?.isTeamLeader) && (
+                {isPowerUser && (
                     <th className="w-48 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
                 )}
                 <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
@@ -489,46 +520,56 @@ export const PracticesList: React.FC = () => {
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
                 <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
-                <th className="w-16 px-6 py-5 text-center">V</th>
+                <th className="w-24 px-6 py-5 text-center font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Gestione</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((practice) => (
                 <tr 
                   key={practice.id} 
-                  onClick={() => navigate(`/practices/${practice.id}`)}
                   className="hover:bg-red-50/20 transition-all cursor-pointer group"
                 >
-                  <td className="px-6 py-5 text-center">
+                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
                     <div className="flex justify-center">
                         <TypeIcon type={practice.tipoTrattativa} />
                     </div>
                   </td>
-                  {(user?.isAdmin || user?.isTeamLeader) && (
-                      <td className="px-6 py-5">
+                  {isPowerUser && (
+                      <td className="px-6 py-5" onClick={() => navigate(`/practices/${practice.id}`)}>
                           <div className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block max-w-full truncate">
                             {practice.agentName}
                           </div>
                       </td>
                   )}
-                  <td className="px-6 py-5 overflow-hidden">
+                  <td className="px-6 py-5 overflow-hidden" onClick={() => navigate(`/practices/${practice.id}`)}>
                     <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">{practice.customerData?.nome}</div>
                     <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5 truncate">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
                   </td>
-                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap">{formatIT(practice.valoreTotale)}</td>
-                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoTrattativa} /></td>
-                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoAffidamento} /></td>
-                  <td className="px-6 py-5 text-center"><StatusBadge status={practice.statoOrdine} /></td>
-                  <td className="px-6 py-5 text-center">
-                      {practice.isLocked ? (
-                        <div className="bg-red-600 text-white p-1 rounded-md inline-block shadow-sm">
-                            <ShieldAlert size={12} />
-                        </div>
-                      ) : (
-                        <div className="bg-gray-100 text-gray-300 p-1 rounded-md inline-block">
-                            <ShieldAlert size={12} />
-                        </div>
-                      )}
+                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>{formatIT(practice.valoreTotale)}</td>
+                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoTrattativa} /></td>
+                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoAffidamento} /></td>
+                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoOrdine} /></td>
+                  <td className="px-6 py-5">
+                      <div className="flex items-center justify-center gap-3">
+                          {practice.isLocked ? (
+                            <div className="bg-red-600 text-white p-1 rounded-md shadow-sm" title="Pratica Bloccata">
+                                <ShieldAlert size={14} />
+                            </div>
+                          ) : (
+                            <div className="bg-gray-100 text-gray-300 p-1 rounded-md" title="Sbloccata">
+                                <ShieldAlert size={14} />
+                            </div>
+                          )}
+                          {user?.isAdmin && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setPracticeToDelete(practice); }}
+                                className="text-gray-300 hover:text-red-600 transition-colors"
+                                title="Elimina Pratica"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                          )}
+                      </div>
                   </td>
                 </tr>
               ))}
