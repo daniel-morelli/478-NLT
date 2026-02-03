@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell, Trash2, Clock } from 'lucide-react';
 import { Modal } from '../components/Modal';
 
 // Utility per formattazione valuta IT
@@ -14,6 +14,15 @@ const formatIT = (val: number | undefined): string => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(val);
+};
+
+const getMeseAnnoOptions = () => {
+  const mesi = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+  const currentYear = new Date().getFullYear();
+  const options: string[] = [];
+  mesi.forEach(m => options.push(`${m} ${currentYear}`));
+  mesi.forEach(m => options.push(`${m} ${currentYear + 1}`));
+  return options;
 };
 
 export const PracticesList: React.FC = () => {
@@ -41,6 +50,7 @@ export const PracticesList: React.FC = () => {
   const [localCreditFilter, setLocalCreditFilter] = useState('all');
   const [localOrderFilter, setLocalOrderFilter] = useState('all');
   const [localReminderFilter, setLocalReminderFilter] = useState('all');
+  const [localClosingMonthFilter, setLocalClosingMonthFilter] = useState('all');
   
   // Vista Admin Specifica
   const adminView = searchParams.get('adminView');
@@ -62,6 +72,7 @@ export const PracticesList: React.FC = () => {
             setLocalCreditFilter(parsed.credit || 'all');
             setLocalOrderFilter(parsed.order || 'all');
             setLocalReminderFilter(parsed.reminder || 'all');
+            setLocalClosingMonthFilter(parsed.closingMonth || 'all');
             
             if (parsed.adminView) {
                 setSearchParams({ adminView: parsed.adminView });
@@ -129,10 +140,11 @@ export const PracticesList: React.FC = () => {
            credit: localCreditFilter,
            order: localOrderFilter,
            reminder: localReminderFilter,
+           closingMonth: localClosingMonthFilter,
            adminView: adminView || undefined 
        }));
     }
-  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, practices, reminders, loading, adminView]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, localClosingMonthFilter, practices, reminders, loading, adminView]);
 
   const applyFilters = () => {
     let res = [...practices];
@@ -166,6 +178,7 @@ export const PracticesList: React.FC = () => {
         if (localDealFilter !== 'all') res = res.filter(p => p.statoTrattativa === localDealFilter);
         if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
         if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
+        if (localClosingMonthFilter !== 'all') res = res.filter(p => p.mesePrevistoChiusura === localClosingMonthFilter);
 
         if (localReminderFilter !== 'all') {
             const today = new Date();
@@ -194,6 +207,7 @@ export const PracticesList: React.FC = () => {
     setLocalCreditFilter('all');
     setLocalOrderFilter('all');
     setLocalReminderFilter('all');
+    setLocalClosingMonthFilter('all');
     setSearchParams({});
     sessionStorage.removeItem('nlt_filters_v2');
   };
@@ -223,6 +237,7 @@ export const PracticesList: React.FC = () => {
       if (localCreditFilter !== 'all') count++;
       if (localOrderFilter !== 'all') count++;
       if (localReminderFilter !== 'all') count++;
+      if (localClosingMonthFilter !== 'all') count++;
       return count;
   };
 
@@ -401,7 +416,7 @@ export const PracticesList: React.FC = () => {
           </div>
 
           {showFilters && (
-              <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 animate-in slide-in-from-top-4 duration-300">
+              <div className="pt-6 border-t border-gray-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in slide-in-from-top-4 duration-300">
                   <FilterSelect 
                       label="Stato Trattativa" 
                       icon={Briefcase}
@@ -446,6 +461,13 @@ export const PracticesList: React.FC = () => {
                       value={localYearFilter} 
                       onChange={setLocalYearFilter}
                       options={[2024, 2025, 2026].map(y => ({val: y.toString(), label: y.toString()}))}
+                  />
+                  <FilterSelect 
+                      label="Prevista Chiusura" 
+                      icon={Clock}
+                      value={localClosingMonthFilter} 
+                      onChange={setLocalClosingMonthFilter}
+                      options={getMeseAnnoOptions().map(opt => ({val: opt, label: opt}))}
                   />
               </div>
           )}
