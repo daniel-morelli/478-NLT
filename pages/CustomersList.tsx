@@ -2,29 +2,40 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Customer } from '../types';
-import { User, Mail, Phone, Search, Plus, X, Save, Edit3, Briefcase, PhoneCall } from 'lucide-react';
+import { Customer, Agent } from '../types';
+import { User, Mail, Phone, Search, Plus, X, Save, Edit3, Briefcase, PhoneCall, ShieldCheck, Users } from 'lucide-react';
 import { Modal } from '../components/Modal';
 
 export const CustomersList: React.FC = () => {
   const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formCustomer, setFormCustomer] = useState<Partial<Customer>>({ nome: '', email: '', cell: '' });
+  const [formCustomer, setFormCustomer] = useState<Partial<Customer>>({ nome: '', email: '', cell: '', agentId: '' });
+
+  const isPowerUser = user?.isAdmin || user?.isTeamLeader;
 
   useEffect(() => {
     if (user) {
       loadCustomers();
+      if (isPowerUser) {
+        DbService.getAllAgents(true).then(setAgents);
+      }
     }
-  }, [user]);
+  }, [user, isPowerUser]);
 
   const loadCustomers = async () => {
     setLoading(true);
-    const data = await DbService.getCustomers(user!);
-    setCustomers(data);
-    setLoading(false);
+    try {
+      const data = await DbService.getCustomers(user!);
+      setCustomers(data);
+    } catch (e) {
+      console.error("Errore caricamento clienti:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -32,17 +43,23 @@ export const CustomersList: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-        await DbService.saveCustomer({ ...formCustomer, agentId: user.id });
+        // Se non è stato specificato un agentId (es. nuovo cliente di un agente standard), usiamo l'ID dell'utente corrente
+        const targetAgentId = formCustomer.agentId || user.id;
+        await DbService.saveCustomer({ ...formCustomer, agentId: targetAgentId });
         setIsModalOpen(false);
         loadCustomers();
     } catch (e) {
-        console.error(e);
+        console.error("Errore salvataggio cliente:", e);
     } finally {
         setLoading(false);
     }
   };
 
-  const filtered = customers.filter(c => c.nome.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()));
+  const filtered = customers.filter(c => 
+    c.nome.toLowerCase().includes(search.toLowerCase()) || 
+    (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
+    (c.agentName && c.agentName.toLowerCase().includes(search.toLowerCase()))
+  );
 
   const InputStyle = "w-full border border-gray-200 bg-white text-gray-900 rounded-xl p-3.5 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all text-sm font-semibold shadow-sm";
   const LabelStyle = "block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5 ml-1";
@@ -55,7 +72,7 @@ export const CustomersList: React.FC = () => {
             <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Gestione centralizzata dei contatti</p>
         </div>
         <button 
-            onClick={() => {setFormCustomer({ nome: '', email: '', cell: '' }); setIsModalOpen(true);}} 
+            onClick={() => {setFormCustomer({ nome: '', email: '', cell: '', agentId: user?.id }); setIsModalOpen(true);}} 
             className="w-full md:w-auto flex items-center justify-center gap-2 bg-black text-white px-6 py-3 hover:bg-gray-800 shadow-xl transition-all transform active:scale-95 font-bold uppercase text-xs tracking-widest rounded-2xl"
         >
           <Plus size={18} /> Nuovo Cliente
@@ -66,7 +83,7 @@ export const CustomersList: React.FC = () => {
         <Search className="text-gray-400" size={20} />
         <input 
             type="text" 
-            placeholder="Cerca per nome o email..." 
+            placeholder="Cerca per nome, email o agente..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-transparent border-none outline-none text-sm font-semibold placeholder:text-gray-300"
@@ -78,7 +95,7 @@ export const CustomersList: React.FC = () => {
             <div className="col-span-full py-20 text-center"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent animate-spin rounded-full mx-auto"></div></div>
         ) : filtered.length > 0 ? (
             filtered.map(c => (
-                <div key={c.id} className="bg-white border border-gray-100 p-6 rounded-3xl shadow-sm hover:shadow-xl transition-all group">
+                <div key={c.id} className="bg-white border border-gray-100 p-6 rounded-3xl shadow-sm hover:shadow-xl transition-all group relative overflow-hidden">
                     <div className="flex justify-between items-start mb-6">
                         <div className="bg-red-50 p-3 rounded-2xl group-hover:bg-red-600 group-hover:text-white transition-colors">
                             <Briefcase size={24} />
@@ -107,7 +124,7 @@ export const CustomersList: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 mb-6">
                         <div className="flex items-center gap-3 text-gray-500">
                             <Mail size={14} className="text-red-600" />
                             <span className="text-xs font-bold truncate">{c.email || 'Email non presente'}</span>
@@ -116,6 +133,17 @@ export const CustomersList: React.FC = () => {
                             <Phone size={14} className="text-red-600" />
                             <span className="text-xs font-bold">{c.cell || 'Cellulare non presente'}</span>
                         </div>
+                    </div>
+
+                    {/* Badge Agente Assegnato */}
+                    <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <User size={12} className="text-gray-400" />
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Agente:</span>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${c.agentId === user?.id ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-gray-100 text-gray-600 border border-gray-200'}`}>
+                            {c.agentName || 'N/D'}
+                        </span>
                     </div>
                 </div>
             ))
@@ -148,6 +176,33 @@ export const CustomersList: React.FC = () => {
                             <input type="tel" value={formCustomer.cell || ''} onChange={e => setFormCustomer({...formCustomer, cell: e.target.value})} className={InputStyle} />
                         </div>
                     </div>
+                    
+                    {/* Selettore Agente (Solo per Admin e Team Leader) */}
+                    {isPowerUser ? (
+                      <div>
+                        <label className={LabelStyle}>Agente di Riferimento</label>
+                        <div className="relative">
+                          <Users size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-red-600" />
+                          <select 
+                            required
+                            value={formCustomer.agentId || ''} 
+                            onChange={e => setFormCustomer({...formCustomer, agentId: e.target.value})} 
+                            className={`${InputStyle} pl-11 font-black uppercase text-[11px] tracking-widest`}
+                          >
+                            <option value="">-- SELEZIONA AGENTE --</option>
+                            {agents.map(a => (
+                              <option key={a.id} value={a.id}>{a.nome.toUpperCase()}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex items-center gap-3">
+                          <ShieldCheck size={18} className="text-red-600" />
+                          <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">Proprietario Attuale: <span className="text-black">{formCustomer.agentName || user?.nome}</span></span>
+                      </div>
+                    )}
+
                     <div className="flex justify-end gap-4 pt-6">
                         <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-gray-400 font-black uppercase text-[10px] tracking-widest">Annulla</button>
                         <button type="submit" className="bg-red-600 text-white px-10 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-red-700 shadow-xl shadow-red-600/20 transition-all">

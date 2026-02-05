@@ -11,6 +11,7 @@ import { PracticeForm } from './pages/PracticeForm';
 import { CustomersList } from './pages/CustomersList';
 import { AdminAgents } from './pages/AdminAgents';
 import { AdminProviders } from './pages/AdminProviders';
+import { AdminDealSources } from './pages/AdminDealSources';
 import { Profile } from './pages/Profile';
 import { CalendarPage } from './pages/CalendarPage';
 import { BackupView } from './components/BackupView';
@@ -49,6 +50,7 @@ const AppRoutes = () => {
             {/* Admin Routes */}
             <Route path="/agents" element={<ProtectedRoute><AdminAgents /></ProtectedRoute>} />
             <Route path="/providers" element={<ProtectedRoute><AdminProviders /></ProtectedRoute>} />
+            <Route path="/deal-sources" element={<ProtectedRoute><AdminDealSources /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

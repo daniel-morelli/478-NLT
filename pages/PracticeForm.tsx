@@ -3,8 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, CreditStatus, OrderStatus, Provider, Agent, Reminder, Customer, VehicleCredit, VehicleOrder, PracticeType } from '../types';
-import { ArrowLeft, Save, Lock, User, History, Briefcase, ShieldCheck, ShoppingCart, Bell, Info, Search, UserPlus, Phone, Mail, AlertTriangle, X, Plus, Trash2, RefreshCw, Users, Layers, PhoneCall, Unlock } from 'lucide-react';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Provider, Agent, Reminder, Customer, VehicleCredit, VehicleOrder, PracticeType, DealSource } from '../types';
+import { ArrowLeft, Save, Lock, User, History, Briefcase, ShieldCheck, ShoppingCart, Bell, Info, Search, UserPlus, Phone, Mail, AlertTriangle, X, Plus, Trash2, RefreshCw, Users, Layers, PhoneCall, Unlock, Target } from 'lucide-react';
 import { PracticeReminders } from '../components/PracticeReminders';
 import { PracticeTimeline } from '../components/PracticeTimeline';
 import { Modal } from '../components/Modal';
@@ -44,6 +44,7 @@ export const PracticeForm: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>(id ? 'storia' : 'trattativa');
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [dealSources, setDealSources] = useState<DealSource[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -60,7 +61,7 @@ export const PracticeForm: React.FC = () => {
   const [formData, setFormData] = useState<Partial<Practice>>({
     data: new Date().toISOString().split('T')[0],
     tipoTrattativa: PracticeType.ORDINE,
-    agentId: id ? '' : ((user?.isAdmin || user?.isTeamLeader) ? '' : user?.id),
+    agentId: '',
     statoTrattativa: DealStatus.IN_CORSO,
     statoAffidamento: '',
     statoOrdine: '',
@@ -68,6 +69,7 @@ export const PracticeForm: React.FC = () => {
     valoreTotale: undefined,
     valoreListinoTrattativa: undefined,
     mesePrevistoChiusura: '',
+    dealSource: '',
     veicoliAffidamento: [],
     veicoliOrdine: [],
     provider: '',
@@ -83,6 +85,13 @@ export const PracticeForm: React.FC = () => {
 
   const isPowerUser = user?.isAdmin || user?.isTeamLeader;
   const isPracticeLocked = formData.isLocked && !isPowerUser;
+
+  // Effetto per impostare l'agente di default se è un agente semplice che crea una nuova pratica
+  useEffect(() => {
+    if (!id && user && !isPowerUser && !formData.agentId) {
+      setFormData(prev => ({ ...prev, agentId: user.id }));
+    }
+  }, [user, id, isPowerUser, formData.agentId]);
 
   // Calcoli automatici Affidamento
   const autoCreditTotals = useMemo(() => {
@@ -106,6 +115,7 @@ export const PracticeForm: React.FC = () => {
 
   useEffect(() => {
     DbService.getAllProviders(true).then(setProviders);
+    DbService.getAllDealSources(true).then(setDealSources);
     if (user && isPowerUser) {
         DbService.getAllAgents(true).then(data => {
             setAgents(data.filter(a => a.isAgent && a.isActive));
@@ -135,8 +145,10 @@ export const PracticeForm: React.FC = () => {
     if (!id || !user) return;
     setLoading(true);
     try {
-        const practicesData = await DbService.getPractices(user);
-        const remindersData = await DbService.getReminders(id);
+        const [practicesData, remindersData] = await Promise.all([
+          DbService.getPractices(user),
+          DbService.getReminders(id)
+        ]);
         const found = practicesData.find(p => p.id === id);
         if (found) {
           setFormData({
@@ -378,7 +390,7 @@ export const PracticeForm: React.FC = () => {
                     <div className="flex items-center gap-3 mt-1"><span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{formData.provider || 'Provider N/D'}</span><span className="text-red-600 text-[10px] font-black">•</span><span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{id ? `ID: ${id.substring(0,8)}` : 'Bozza'}</span></div>
                 </div>
                 {isPowerUser ? (
-                    <div className={`flex items-center gap-3 bg-gray-900 px-4 py-3 border rounded-2xl ${!formData.agentId ? 'border-red-600 ring-2 ring-red-600/20' : 'border-gray-800'}`}>
+                    <div className={`flex items-center gap-3 bg-gray-900 px-4 py-3 border rounded-2xl transition-all duration-300 ${!formData.agentId ? 'border-red-600 ring-4 ring-red-600/30 bg-red-600/5' : 'border-gray-800'}`}>
                         <User size={16} className={!formData.agentId ? 'text-red-600 animate-pulse' : 'text-red-600'} />
                         <select name="agentId" required disabled={isPracticeLocked} value={formData.agentId || ''} onChange={handleChange} className="bg-transparent border-none text-white text-[11px] font-black focus:ring-0 cursor-pointer outline-none uppercase tracking-widest">
                             <option value="" className="bg-black text-red-500 italic">-- SELEZIONA AGENTE --</option>
@@ -405,33 +417,110 @@ export const PracticeForm: React.FC = () => {
                     <div className="max-w-5xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <section>
                             <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2 mb-8 border-b border-gray-50 pb-2 w-full"><Info size={16} className="text-red-600"/> DATI IDENTIFICATIVI</h3>
+                            
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
                                 <div><label className={LabelStyle}>Tipologia Trattativa</label><select name="tipoTrattativa" required disabled={isPracticeLocked} value={formData.tipoTrattativa || PracticeType.ORDINE} onChange={handleChange} className={`${InputStyle} font-black uppercase border-black ring-black/5`}><option value={PracticeType.ORDINE}>ORDINE</option><option value={PracticeType.PROROGA}>PROROGA</option></select></div>
                                 <div><label className={LabelStyle}>Data Pratica</label><input type="date" name="data" required disabled={isPracticeLocked} value={formData.data} onChange={handleChange} className={InputStyle} /></div>
                                 <div><label className={LabelStyle}>Stato Trattativa</label><select name="statoTrattativa" disabled={isPracticeLocked} value={formData.statoTrattativa} onChange={handleChange} className={`${InputStyle} font-black text-red-600 bg-red-50/20`}>{Object.values(DealStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div>
                             </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                <div>
+                                  <label className={LabelStyle}>Origine Trattativa</label>
+                                  <select name="dealSource" disabled={isPracticeLocked} value={formData.dealSource || ''} onChange={handleChange} className={InputStyle}>
+                                    <option value="">-- SELEZIONA ORIGINE --</option>
+                                    {dealSources.map(s => <option key={s.id} value={s.name}>{s.name.toUpperCase()}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className={LabelStyle}>Mese Previsto Chiusura</label>
+                                  <select name="mesePrevistoChiusura" disabled={isPracticeLocked} value={formData.mesePrevistoChiusura} onChange={handleChange} className={InputStyle}>
+                                    <option value="">-- SELEZIONA MESE --</option>
+                                    {getMeseAnnoOptions().map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}
+                                  </select>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 relative">
                                     <label className={LabelStyle}>Ricerca Anagrafica Cliente</label>
-                                    <div className="relative group"><Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" /><input type="text" placeholder={formData.agentId ? "Cerca cliente..." : "Seleziona prima un agente..."} disabled={!formData.agentId || isPracticeLocked} value={customerSearch} onChange={(e) => {setCustomerSearch(e.target.value); setShowCustomerResults(true);}} onFocus={() => setShowCustomerResults(true)} className={`${InputStyle} pl-11 ${(!formData.agentId || isPracticeLocked) ? 'opacity-50 cursor-not-allowed' : ''}`} />{showCustomerResults && formData.agentId && customerSearch.length > 0 && !isPracticeLocked && (
-                                            <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 shadow-2xl z-[100] rounded-2xl max-h-60 overflow-y-auto">{filteredCustomers.length > 0 ? (filteredCustomers.map(c => (<div key={c.id} onClick={() => handleSelectCustomer(c)} className="p-4 hover:bg-red-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between group"><div className="flex flex-col"><span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span><span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span></div><div className="flex items-center gap-2">{c.cell && (<a href={`tel:${c.cell}`} onClick={(e) => e.stopPropagation()} className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"><PhoneCall size={14} /></a>)}<Briefcase size={14} className="text-gray-200" /></div></div>))) : (<div onClick={() => {setIsAddingNewCustomer(true); setNewCustomer({...newCustomer, nome: customerSearch}); setShowCustomerResults(false);}} className="p-6 text-center cursor-pointer hover:bg-gray-50"><UserPlus size={24} className="mx-auto text-red-600 mb-2" /><span className="text-xs font-black text-gray-900 uppercase tracking-widest block">" {customerSearch} "</span><span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Anagrafica non trovata. Clicca per censirla.</span></div>)}</div>
-                                        )}</div>
-                                    {formData.customerId && (<div className="mt-2 flex items-center gap-2"><div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg w-fit"><ShieldCheck size={14} className="text-green-600" /><span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Collegata</span></div>{formData.customerData?.cell && (<a href={`tel:${formData.customerData.cell}`} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg w-fit hover:bg-red-700 transition-colors shadow-sm"><PhoneCall size={12} /><span className="text-[9px] font-black uppercase tracking-widest">Chiama</span></a>)}</div>)}
+                                    <div className="relative group">
+                                      <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${!formData.agentId ? 'text-red-600' : 'text-gray-400'}`} />
+                                      <input 
+                                        type="text" 
+                                        placeholder={formData.agentId ? "Cerca cliente..." : "⚠️ SELEZIONA PRIMA UN AGENTE IN ALTO A DESTRA"} 
+                                        disabled={!formData.agentId || isPracticeLocked} 
+                                        value={customerSearch} 
+                                        onChange={(e) => {setCustomerSearch(e.target.value); setShowCustomerResults(true);}} 
+                                        onFocus={() => setShowCustomerResults(true)} 
+                                        className={`${InputStyle} pl-11 ${(!formData.agentId || isPracticeLocked) ? 'bg-red-50/50 border-red-200 cursor-not-allowed placeholder:text-red-600/60 placeholder:font-black placeholder:text-[10px]' : ''}`} 
+                                      />
+                                      {showCustomerResults && formData.agentId && customerSearch.length > 0 && !isPracticeLocked && (
+                                            <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 shadow-2xl z-[100] rounded-2xl max-h-60 overflow-y-auto">
+                                              {filteredCustomers.length > 0 ? (
+                                                filteredCustomers.map(c => (
+                                                  <div key={c.id} onClick={() => handleSelectCustomer(c)} className="p-4 hover:bg-red-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between group">
+                                                    <div className="flex flex-col">
+                                                      <span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span>
+                                                      <span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                      {c.cell && (
+                                                        <a href={`tel:${c.cell}`} onClick={(e) => e.stopPropagation()} className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"><PhoneCall size={14} /></a>
+                                                      )}
+                                                      <Briefcase size={14} className="text-gray-200" />
+                                                    </div>
+                                                  </div>
+                                                ))
+                                              ) : (
+                                                <div onClick={() => {setIsAddingNewCustomer(true); setNewCustomer({...newCustomer, nome: customerSearch}); setShowCustomerResults(false);}} className="p-6 text-center cursor-pointer hover:bg-gray-50">
+                                                  <UserPlus size={24} className="mx-auto text-red-600 mb-2" />
+                                                  <span className="text-xs font-black text-gray-900 uppercase tracking-widest block">" {customerSearch} "</span>
+                                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Anagrafica non trovata. Clicca per censirla.</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {formData.customerId && (
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-100 rounded-lg w-fit"><ShieldCheck size={14} className="text-green-600" /><span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Collegata</span></div>
+                                        {formData.customerData?.cell && (
+                                          <a href={`tel:${formData.customerData.cell}`} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white border border-red-700 rounded-lg w-fit hover:bg-red-700 transition-colors shadow-sm"><PhoneCall size={12} /><span className="text-[9px] font-black uppercase tracking-widest">Chiama</span></a>
+                                        )}
+                                      </div>
+                                    )}
                                 </div>
-                                <div><label className={LabelStyle}>Provider</label><select name="provider" required disabled={isPracticeLocked} value={formData.provider || ''} onChange={handleChange} className={InputStyle}><option value="">-- SELEZIONA --</option>{providers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
+                                <div><label className={LabelStyle}>Provider</label><select name="provider" required disabled={isPracticeLocked} value={formData.provider || ''} onChange={handleChange} className={InputStyle}><option value="">-- SELEZIONA PROVIDER --</option>{providers.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}</select></div>
                             </div>
+
                             {isAddingNewCustomer && !isPracticeLocked && (
-                                <div className="mt-6 p-6 bg-red-50/30 border border-red-100 rounded-3xl animate-in zoom-in-95 duration-200"><div className="flex justify-between items-center mb-6"><h4 className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><UserPlus size={16}/> NUOVA ANAGRAFICA</h4><button type="button" onClick={() => setIsAddingNewCustomer(false)} className="text-gray-400 hover:text-red-600"><X size={16}/></button></div><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div><label className={LabelStyle}>Nome</label><input type="text" value={newCustomer.nome} onChange={e => setNewCustomer({...newCustomer, nome: e.target.value})} className={InputStyle} /></div><div><label className={LabelStyle}>Email</label><input type="email" value={newCustomer.email} onChange={e => setNewCustomer({...newCustomer, email: e.target.value})} className={InputStyle} /></div><div><label className={LabelStyle}>Cellulare</label><input type="tel" value={newCustomer.cell} onChange={e => setNewCustomer({...newCustomer, cell: e.target.value})} className={InputStyle} /></div></div><div className="mt-6 flex justify-end"><button type="button" onClick={handleCreateCustomer} className="bg-black text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">Salva Anagrafica</button></div></div>
+                                <div className="mt-6 p-6 bg-red-50/30 border border-red-100 rounded-3xl animate-in zoom-in-95 duration-200">
+                                  <div className="flex justify-between items-center mb-6"><h4 className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><UserPlus size={16}/> NUOVA ANAGRAFICA</h4><button type="button" onClick={() => setIsAddingNewCustomer(false)} className="text-gray-400 hover:text-red-600"><X size={16}/></button></div>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div><label className={LabelStyle}>Nome</label><input type="text" value={newCustomer.nome} onChange={e => setNewCustomer({...newCustomer, nome: e.target.value})} className={InputStyle} /></div>
+                                    <div><label className={LabelStyle}>Email</label><input type="email" value={newCustomer.email} onChange={e => setNewCustomer({...newCustomer, email: e.target.value})} className={InputStyle} /></div>
+                                    <div><label className={LabelStyle}>Cellulare</label><input type="tel" value={newCustomer.cell} onChange={e => setNewCustomer({...newCustomer, cell: e.target.value})} className={InputStyle} /></div>
+                                  </div>
+                                  <div className="mt-6 flex justify-end"><button type="button" onClick={handleCreateCustomer} className="bg-black text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors">Salva Anagrafica</button></div>
+                                </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8"><div><label className={LabelStyle}>Mese Previsto Chiusura</label><select name="mesePrevistoChiusura" disabled={isPracticeLocked} value={formData.mesePrevistoChiusura} onChange={handleChange} className={InputStyle}><option value="">-- SELEZIONA --</option>{getMeseAnnoOptions().map(opt => <option key={opt} value={opt}>{opt.toUpperCase()}</option>)}</select></div></div>
                         </section>
-                        <section className="pt-2 border-t border-gray-100"><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Veicoli Potenziali</label><input type="number" name="numeroVeicoli" disabled={isPracticeLocked} value={formData.numeroVeicoli ?? ''} onChange={handleChange} className={NumberInputStyle} placeholder="0" /></div><CurrencyInput label="Listino Trattativa (€)" name="valoreListinoTrattativa" disabled={isPracticeLocked} value={formData.valoreListinoTrattativa} onChange={handleCurrencyChange} /><CurrencyInput label="Provv. Tot. Trattativa (€)" name="valoreTotale" disabled={isPracticeLocked} value={formData.valoreTotale} onChange={handleCurrencyChange} highlight={true} /><div className="lg:col-span-3"><label className={LabelStyle}>Annotazioni Trattativa</label><textarea name="annotazioniTrattativa" rows={4} disabled={isPracticeLocked} value={formData.annotazioniTrattativa || ''} onChange={handleChange} className={InputStyle} /></div></div></section>
+
+                        <section className="pt-2 border-t border-gray-100">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div><label className={LabelStyle}>Veicoli Potenziali</label><input type="number" name="numeroVeicoli" disabled={isPracticeLocked} value={formData.numeroVeicoli ?? ''} onChange={handleChange} className={NumberInputStyle} placeholder="0" /></div>
+                            <CurrencyInput label="Listino Trattativa (€)" name="valoreListinoTrattativa" disabled={isPracticeLocked} value={formData.valoreListinoTrattativa} onChange={handleCurrencyChange} />
+                            <CurrencyInput label="Provv. Tot. Trattativa (€)" name="valoreTotale" disabled={isPracticeLocked} value={formData.valoreTotale} onChange={handleCurrencyChange} highlight={true} />
+                            <div className="lg:col-span-3"><label className={LabelStyle}>Annotazioni Trattativa</label><textarea name="annotazioniTrattativa" rows={4} disabled={isPracticeLocked} value={formData.annotazioniTrattativa || ''} onChange={handleChange} className={InputStyle} /></div>
+                          </div>
+                        </section>
                     </div>
                 )}
 
                 {activeTab === 'affidamento' && (
                     <div className={`space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-300 ${(!isAffidamentoEnabled || isPracticeLocked) ? 'opacity-50' : ''}`}>
-                        <div className="max-w-5xl mx-auto space-y-12"><div className="flex items-center justify-between border-b border-gray-100 pb-4"><h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2"><ShieldCheck size={16} className="text-red-600"/> ISTRUTTORIA CREDITIZIA</h3>{(!isAffidamentoEnabled || isPracticeLocked) && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 uppercase"><Lock size={12}/> Bloccata</div>}</div><div className="space-y-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Esito</label><select disabled={!isAffidamentoEnabled || isPracticeLocked} name="statoAffidamento" value={formData.statoAffidamento} onChange={handleChange} className={InputStyle}><option value="">-- IN ATTESA --</option>{Object.values(CreditStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div><div><label className={LabelStyle}>Data Affidamento</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataRichiestaAffidamento" value={formData.dataRichiestaAffidamento || ''} onChange={handleChange} className={InputStyle} /></div><div><label className={LabelStyle}>Data Esito</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} /></div></div><div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli</h4><button type="button" disabled={!isAffidamentoEnabled || isPracticeLocked} onClick={addVehicleCredit} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden"><table className="w-full text-left"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliAffidamento?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleCredit(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleCredit(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleCredit(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleCredit(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleCredit(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Veicoli (Auto)</label><input readOnly disabled type="number" value={autoCreditTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div>{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_listino_affidamento" label="Listino (Auto)" value={autoCreditTotals.listino} disabled={!isAffidamentoEnabled || isPracticeLocked} />{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_provvigione_affidamento" label="Provv. (Auto)" value={autoCreditTotals.provvigione} disabled={!isAffidamentoEnabled || isPracticeLocked} highlight /></div><textarea disabled={!isAffidamentoEnabled || isPracticeLocked} name="annotazioniAffidamento" rows={4} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} placeholder="Note credito..." /></div></div>
+                        <div className="max-w-5xl mx-auto space-y-12"><div className="flex items-center justify-between border-b border-gray-100 pb-4"><h3 className="text-[11px] font-black text-gray-900 uppercase tracking-[0.3em] flex items-center gap-2"><ShieldCheck size={16} className="text-red-600"/> ISTRUTTORIA CREDITIZIA</h3>{(!isAffidamentoEnabled || isPracticeLocked) && <div className="text-[10px] font-black text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1 uppercase"><Lock size={12}/> Bloccata</div>}</div><div className="space-y-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Esito</label><select disabled={!isAffidamentoEnabled || isPracticeLocked} name="statoAffidamento" value={formData.statoAffidamento} onChange={handleChange} className={InputStyle}><option value="">-- IN ATTESA --</option>{Object.values(CreditStatus).map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}</select></div><div><label className={LabelStyle}>Data Affidamento</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataRichiestaAffidamento" value={formData.dataRichiestaAffidamento || ''} onChange={handleChange} className={InputStyle} /></div><div><label className={LabelStyle}>Data Esito</label><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="date" name="dataAffidamento" value={formData.dataAffidamento || ''} onChange={handleChange} className={InputStyle} /></div></div><div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Veicoli</h4><button type="button" disabled={!isAffidamentoEnabled || isPracticeLocked} onClick={addVehicleCredit} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden"><table className="w-full text-left"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliAffidamento?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleCredit(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleCredit(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleCredit(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isAffidamentoEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleCredit(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleCredit(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Veicoli (Auto)</label><input readOnly disabled type="number" value={autoCreditTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div><CurrencyInput name="auto_listino_affidamento" label="Listino (Auto)" value={autoCreditTotals.listino} disabled={!isAffidamentoEnabled || isPracticeLocked} /><CurrencyInput name="auto_provvigione_affidamento" label="Provv. (Auto)" value={autoCreditTotals.provvigione} disabled={!isAffidamentoEnabled || isPracticeLocked} highlight /></div><textarea disabled={!isAffidamentoEnabled || isPracticeLocked} name="annotazioniAffidamento" rows={4} value={formData.annotazioniAffidamento || ''} onChange={handleChange} className={InputStyle} placeholder="Note credito..." /></div></div>
                     </div>
                 )}
 
@@ -444,7 +533,7 @@ export const PracticeForm: React.FC = () => {
                                 <div><label className={LabelStyle}>Data Firma</label><input disabled={!isOrdineEnabled || isPracticeLocked} type="date" name="dataOrdine" value={formData.dataOrdine || ''} onChange={handleChange} className={InputStyle} /></div>
                             </div>
                             <div className="space-y-4"><div className="flex justify-between items-center"><h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dettaglio Ordine</h4><button type="button" disabled={!isOrdineEnabled || isPracticeLocked} onClick={addVehicleOrder} className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center gap-2"><Plus size={14}/> Aggiungi</button></div><div className="bg-gray-50/50 border border-gray-100 rounded-2xl overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[1000px]"><thead><tr className="bg-gray-100 text-[9px] font-black text-gray-500 uppercase tracking-widest border-b border-gray-200"><th className="px-4 py-3">Marca</th><th className="px-4 py-3">Modello</th><th className="px-4 py-3 text-right">Listino</th><th className="px-4 py-3 text-right">Provv</th><th className="px-4 py-3 text-center">Mesi</th><th className="px-4 py-3 text-right">KM</th><th className="px-4 py-3 w-10"></th></tr></thead><tbody className="divide-y divide-gray-100">{formData.veicoliOrdine?.map((v) => (<tr key={v.id} className="hover:bg-white"><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.marca} onChange={e => updateVehicleOrder(v.id, 'marca', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} value={v.modello} onChange={e => updateVehicleOrder(v.id, 'modello', e.target.value)} className={CompactInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.valoreListino || ''} onChange={e => updateVehicleOrder(v.id, 'valoreListino', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.provvigione || ''} onChange={e => updateVehicleOrder(v.id, 'provvigione', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.durataMesi || ''} onChange={e => updateVehicleOrder(v.id, 'durataMesi', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><input disabled={!isOrdineEnabled || isPracticeLocked} type="number" value={v.km || ''} onChange={e => updateVehicleOrder(v.id, 'km', Number(e.target.value))} className={CompactNumberInputStyle} /></td><td className="px-2 py-2"><button type="button" onClick={() => removeVehicleOrder(v.id)} className="text-gray-300 hover:text-red-600"><Trash2 size={16}/></button></td></tr>))}</tbody></table></div></div>
-                            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Ordinati (Auto)</label><input readOnly disabled type="number" value={autoOrderTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div>{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_listino_ordine" label="Listino (Auto)" value={autoOrderTotals.listino} disabled={!isOrdineEnabled || isPracticeLocked} />{/* Added missing name prop to fix TS error */}<CurrencyInput name="auto_provvigione_ordine" label="Provv. (Auto)" value={autoOrderTotals.provvigione} disabled={!isOrdineEnabled || isPracticeLocked} highlight /></div>
+                            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8"><div><label className={LabelStyle}>Ordinati (Auto)</label><input readOnly disabled type="number" value={autoOrderTotals.count} className={`${NumberInputStyle} bg-gray-50 text-gray-500 font-black`} /></div><CurrencyInput name="auto_listino_ordine" label="Listino (Auto)" value={autoOrderTotals.listino} disabled={!isOrdineEnabled || isPracticeLocked} /><CurrencyInput name="auto_provvigione_ordine" label="Provv. (Auto)" value={autoOrderTotals.provvigione} disabled={!isOrdineEnabled || isPracticeLocked} highlight /></div>
                             <div className="max-w-5xl mx-auto w-full space-y-8">
                                 <div><label className={LabelStyle}>Note Ordine</label><textarea disabled={!isOrdineEnabled || isPracticeLocked} name="annotazioneOrdine" rows={5} value={formData.annotazioneOrdine || ''} onChange={handleChange} className={InputStyle} /></div>
                                 {isPowerUser && (

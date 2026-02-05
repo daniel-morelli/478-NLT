@@ -2,9 +2,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
-import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType } from '../types';
+import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent, Provider, PracticeType, DealSource } from '../types';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell, Trash2, Clock } from 'lucide-react';
+import { Plus, Search, Filter, ArrowRight, X, User, Calendar, Briefcase, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, ShoppingCart, Layers, RefreshCw, AlertTriangle, Eye, ShieldAlert, Bell, Trash2, Clock, Target } from 'lucide-react';
 import { Modal } from '../components/Modal';
 
 // Utility per formattazione valuta IT
@@ -33,6 +33,7 @@ export const PracticesList: React.FC = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [dealSources, setDealSources] = useState<DealSource[]>([]);
   const [filtered, setFiltered] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +47,7 @@ export const PracticesList: React.FC = () => {
   const [localYearFilter, setLocalYearFilter] = useState('all');
   const [localAgentFilter, setLocalAgentFilter] = useState('all');
   const [localProviderFilter, setLocalProviderFilter] = useState('all');
+  const [localSourceFilter, setLocalSourceFilter] = useState('all');
   const [localDealFilter, setLocalDealFilter] = useState('all');
   const [localCreditFilter, setLocalCreditFilter] = useState('all');
   const [localOrderFilter, setLocalOrderFilter] = useState('all');
@@ -68,6 +70,7 @@ export const PracticesList: React.FC = () => {
             setLocalYearFilter(parsed.year || 'all');
             setLocalAgentFilter(parsed.agent || 'all');
             setLocalProviderFilter(parsed.provider || 'all');
+            setLocalSourceFilter(parsed.source || 'all');
             setLocalDealFilter(parsed.deal || 'all');
             setLocalCreditFilter(parsed.credit || 'all');
             setLocalOrderFilter(parsed.order || 'all');
@@ -87,13 +90,15 @@ export const PracticesList: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-        const [practicesData, providersData] = await Promise.all([
+        const [practicesData, providersData, sourcesData] = await Promise.all([
             DbService.getPractices(user),
-            DbService.getAllProviders(false)
+            DbService.getAllProviders(false),
+            DbService.getAllDealSources(false)
         ]);
         
         setPractices(practicesData);
         setProviders(providersData);
+        setDealSources(sourcesData);
 
         if (practicesData.length > 0) {
             const pIds = practicesData.map(p => p.id);
@@ -136,6 +141,7 @@ export const PracticesList: React.FC = () => {
            year: localYearFilter,
            agent: localAgentFilter,
            provider: localProviderFilter,
+           source: localSourceFilter,
            deal: localDealFilter,
            credit: localCreditFilter,
            order: localOrderFilter,
@@ -144,7 +150,7 @@ export const PracticesList: React.FC = () => {
            adminView: adminView || undefined 
        }));
     }
-  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, localClosingMonthFilter, practices, reminders, loading, adminView]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localSourceFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, localClosingMonthFilter, practices, reminders, loading, adminView]);
 
   const applyFilters = () => {
     let res = [...practices];
@@ -175,6 +181,7 @@ export const PracticesList: React.FC = () => {
         if (localYearFilter !== 'all') res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
         if (localAgentFilter !== 'all') res = res.filter(p => p.agentId === localAgentFilter);
         if (localProviderFilter !== 'all') res = res.filter(p => p.provider === localProviderFilter);
+        if (localSourceFilter !== 'all') res = res.filter(p => p.dealSource === localSourceFilter);
         if (localDealFilter !== 'all') res = res.filter(p => p.statoTrattativa === localDealFilter);
         if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
         if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
@@ -203,6 +210,7 @@ export const PracticesList: React.FC = () => {
     setLocalYearFilter('all');
     setLocalAgentFilter('all');
     setLocalProviderFilter('all');
+    setLocalSourceFilter('all');
     setLocalDealFilter('all');
     setLocalCreditFilter('all');
     setLocalOrderFilter('all');
@@ -233,6 +241,7 @@ export const PracticesList: React.FC = () => {
       if (localYearFilter !== 'all') count++;
       if (localAgentFilter !== 'all') count++;
       if (localProviderFilter !== 'all') count++;
+      if (localSourceFilter !== 'all') count++;
       if (localDealFilter !== 'all') count++;
       if (localCreditFilter !== 'all') count++;
       if (localOrderFilter !== 'all') count++;
@@ -454,6 +463,13 @@ export const PracticesList: React.FC = () => {
                       value={localProviderFilter} 
                       onChange={setLocalProviderFilter}
                       options={providers.map(p => ({val: p.name, label: p.name}))}
+                  />
+                  <FilterSelect 
+                      label="Origine Trattativa" 
+                      icon={Target}
+                      value={localSourceFilter} 
+                      onChange={setLocalSourceFilter}
+                      options={dealSources.map(s => ({val: s.name, label: s.name}))}
                   />
                   <FilterSelect 
                       label="Anno Pratica" 

@@ -20,7 +20,8 @@ import {
   Clock,
   Zap,
   Settings,
-  Database
+  Database,
+  Target
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -153,6 +154,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   <div className="space-y-1 animate-in slide-in-from-top-2 duration-300">
                     {user.isAdmin && <NavItem to="/agents" icon={Users} label="Gestione Agenti" />}
                     <NavItem to="/providers" icon={Briefcase} label="Gestione Provider" />
+                    <NavItem to="/deal-sources" icon={Target} label="Gestione Origini" />
                     {user.isAdmin && <NavItem to="/backup" icon={Database} label="Backup & Recovery" />}
                   </div>
                 )}

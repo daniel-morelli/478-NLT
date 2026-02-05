@@ -41,12 +41,19 @@ export interface Provider {
   isActive: boolean;
 }
 
+export interface DealSource {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
 export interface Customer {
   id: string;
   nome: string;
   email: string;
   cell: string;
   agentId: string;
+  agentName?: string; // Nome dell'agente proprietario
   createdAt: string;
 }
 
@@ -74,6 +81,7 @@ export interface Practice {
   data: string;
   cliente?: string;
   provider: string;
+  dealSource?: string;
   tipoTrattativa: PracticeType;
   numeroVeicoli: number;
   valoreTotale: number;

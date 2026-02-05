@@ -1,5 +1,6 @@
 
-import { Agent, Practice, Provider, Reminder, Customer, PracticeType } from '../types';
+
+import { Agent, Practice, Provider, Reminder, Customer, PracticeType, DealSource } from '../types';
 import { supabase } from './firebaseConfig';
 
 // --- MAPPERS ---
@@ -32,6 +33,7 @@ const fromDbCustomer = (c: any): Customer => ({
   email: c.email,
   cell: c.cell,
   agentId: c.agent_id,
+  agentName: c.nlt_agents?.nome || undefined, // Nome dell'agente caricato via join
   createdAt: c.created_at
 });
 
@@ -42,6 +44,7 @@ const fromDbPractice = (p: any): Practice => ({
   customerId: p.customer_id,
   data: p.data,
   provider: p.provider,
+  dealSource: p.deal_source,
   tipoTrattativa: p.tipo_trattativa || PracticeType.ORDINE,
   numeroVeicoli: p.numero_veicoli ?? 0,
   valoreTotale: p.valore_totale ?? 0,
@@ -64,19 +67,21 @@ const fromDbPractice = (p: any): Practice => ({
 });
 
 const toDbPractice = (p: Partial<Practice>) => {
-  // Converte stringhe vuote in null per i campi che il DB si aspetta come DATE o ENUM/NULL
   const data: any = {
     agent_id: p.agentId,
     customer_id: p.customerId,
     data: p.data || null,
     provider: p.provider,
+    deal_source: p.dealSource,
     tipo_trattativa: p.tipoTrattativa,
     numero_veicoli: p.numeroVeicoli,
     valore_totale: p.valoreTotale,
     valore_listino_trattativa: p.valoreListinoTrattativa,
+    // FIX: Using camelCase property from Practice interface
     mese_previsto_chiusura: p.mesePrevistoChiusura || null,
     veicoli_affidamento: p.veicoliAffidamento,
     stato_trattativa: p.statoTrattativa,
+    // FIX: Using camelCase property from Practice interface (fixed reported error on line 82)
     annotazioni_trattativa: p.annotazioniTrattativa ?? '',
     data_richiesta_affidamento: p.dataRichiestaAffidamento || null,
     data_affidamento: p.dataAffidamento || null,
@@ -85,13 +90,13 @@ const toDbPractice = (p: Partial<Practice>) => {
     data_ordine: p.dataOrdine || null,
     veicoli_ordine: p.veicoliOrdine,
     stato_ordine: p.statoOrdine || null,
+    // FIX: Using camelCase property from Practice interface
     annotazione_ordine: p.annotazioneOrdine ?? '',
     valido_rappel: p.validoRappel || null,
     is_locked: p.isLocked ?? false,
     deleted_at: p.deletedAt || null
   };
   
-  // Rimuove proprietà undefined
   Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
   return data;
 };
@@ -100,19 +105,45 @@ export const DbService = {
   // --- CUSTOMERS ---
   getCustomers: async (user: Agent, targetAgentId?: string): Promise<Customer[]> => {
     if (!supabase) return [];
-    let query = supabase.from('nlt_customers').select('*').order('nome');
+    
+    // Recuperiamo i clienti con il nome dell'agente associato (join su nlt_agents)
+    let query = supabase
+      .from('nlt_customers')
+      .select('*, nlt_agents(nome)')
+      .order('nome');
     
     if (targetAgentId) {
         query = query.eq('agent_id', targetAgentId);
     } else {
         const isPowerUser = user.isAdmin || user.isTeamLeader;
         if (!isPowerUser) {
-            query = query.eq('agent_id', user.id);
+            // Se non è un power user, mostriamo:
+            // 1. I clienti di cui è proprietario (agent_id = user.id)
+            // 2. I clienti legati a sue pratiche attive (anche se il proprietario del cliente è un altro)
+            
+            // Per semplicità e performance, facciamo prima una query per prendere i customer_id dalle sue pratiche
+            const { data: practiceCustomers } = await supabase
+                .from('nlt_practices')
+                .select('customer_id')
+                .eq('agent_id', user.id)
+                .is('deleted_at', null);
+            
+            const customerIdsFromPractices = (practiceCustomers || []).map(p => p.customer_id);
+            
+            // Applichiamo il filtro OR: (proprietario) OPPURE (ha pratiche con lui)
+            if (customerIdsFromPractices.length > 0) {
+                query = query.or(`agent_id.eq.${user.id},id.in.(${customerIdsFromPractices.join(',')})`);
+            } else {
+                query = query.eq('agent_id', user.id);
+            }
         }
     }
 
     const { data, error } = await query;
-    if (error) return [];
+    if (error) {
+        console.error("Errore recupero clienti:", error);
+        return [];
+    }
     return (data || []).map(fromDbCustomer);
   },
 
@@ -120,11 +151,11 @@ export const DbService = {
     if (!supabase) throw new Error("Database non inizializzato");
     const dbData = { nome: customer.nome, email: customer.email, cell: customer.cell, agent_id: customer.agentId };
     if (customer.id) {
-        const { data, error } = await supabase.from('nlt_customers').update(dbData).eq('id', customer.id).select().single();
+        const { data, error } = await supabase.from('nlt_customers').update(dbData).eq('id', customer.id).select('*, nlt_agents(nome)').single();
         if (error) throw error;
         return fromDbCustomer(data);
     } else {
-        const { data, error } = await supabase.from('nlt_customers').insert([dbData]).select().single();
+        const { data, error } = await supabase.from('nlt_customers').insert([dbData]).select('*, nlt_agents(nome)').single();
         if (error) throw error;
         return fromDbCustomer(data);
     }
@@ -192,6 +223,22 @@ export const DbService = {
     const dbData = { name: provider.name, is_active: provider.isActive };
     if (provider.id) await supabase.from('nlt_providers').update(dbData).eq('id', provider.id);
     else await supabase.from('nlt_providers').insert([dbData]);
+  },
+
+  // --- DEAL SOURCES ---
+  getAllDealSources: async (onlyActive = false): Promise<DealSource[]> => {
+    if (!supabase) return [];
+    let query = supabase.from('nlt_deal_sources').select('*').order('name');
+    if (onlyActive) query = query.eq('is_active', true);
+    const { data } = await query;
+    return (data || []).map(p => ({ id: p.id, name: p.name, isActive: p.is_active ?? true }));
+  },
+
+  saveDealSource: async (source: Partial<DealSource>): Promise<void> => {
+    if (!supabase) return;
+    const dbData = { name: source.name, is_active: source.isActive };
+    if (source.id) await supabase.from('nlt_deal_sources').update(dbData).eq('id', source.id);
+    else await supabase.from('nlt_deal_sources').insert([dbData]);
   },
 
   // --- PRACTICES ---
