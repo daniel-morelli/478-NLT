@@ -64,24 +64,34 @@ export const Dashboard: React.FC = () => {
     }
   }, [user]);
 
-  const filteredPractices = useMemo(() => {
-    return practices.filter(p => {
-      const pDate = new Date(p.data);
-      const sameYear = pDate.getFullYear() === filterYear;
-      const sameAgent = filterAgent === 'all' || p.agentId === filterAgent;
-      
-      let sameMonth = true;
-      if (filterMonth !== 'all') {
-          sameMonth = pDate.getMonth() === filterMonth;
-      }
+  // Funzione helper per verificare se una data rientra nel periodo selezionato
+  const isInSelectedPeriod = (dateStr: string | undefined) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (d.getFullYear() !== filterYear) return false;
+    if (filterMonth !== 'all' && d.getMonth() !== filterMonth) return false;
+    return true;
+  };
 
-      return sameYear && sameMonth && sameAgent;
-    });
-  }, [practices, filterYear, filterMonth, filterAgent]);
+  const matchesAgent = (agentId: string) => filterAgent === 'all' || agentId === filterAgent;
+
+  // Filtriamo le pratiche separatamente per ogni categoria in base alla data di competenza
+  const filteredTrattative = useMemo(() => 
+    practices.filter(p => matchesAgent(p.agentId) && isInSelectedPeriod(p.data))
+  , [practices, filterYear, filterMonth, filterAgent]);
+
+  const filteredAffidamenti = useMemo(() => 
+    practices.filter(p => matchesAgent(p.agentId) && isInSelectedPeriod(p.dataAffidamento || p.dataRichiestaAffidamento))
+  , [practices, filterYear, filterMonth, filterAgent]);
+
+  const filteredOrdini = useMemo(() => 
+    practices.filter(p => matchesAgent(p.agentId) && isInSelectedPeriod(p.dataOrdine))
+  , [practices, filterYear, filterMonth, filterAgent]);
 
   const totalPotenzialiVeicoli = useMemo(() => {
-    return filteredPractices.reduce((acc, curr) => acc + (curr.numeroVeicoli || 0), 0);
-  }, [filteredPractices]);
+    // I veicoli potenziali sono legati alle trattative aperte nel periodo
+    return filteredTrattative.reduce((acc, curr) => acc + (curr.numeroVeicoli || 0), 0);
+  }, [filteredTrattative]);
 
   const expiredRemindersCount = useMemo(() => {
     return reminders.filter(r => {
@@ -117,21 +127,33 @@ export const Dashboard: React.FC = () => {
     }));
     
     practices.forEach(p => {
-      const date = new Date(p.data);
-      const sameAgent = filterAgent === 'all' || p.agentId === filterAgent;
-      if (date.getFullYear() === filterYear && sameAgent) {
-        const month = date.getMonth();
-        if (!isNaN(month)) {
-            // Trattativa (Stima iniziale)
-            data[month].trattativa += (p.valoreTotale || 0);
-            
-            // Affidamento (Somma provvigioni veicoli approvati)
-            const provAffidamento = (p.veicoliAffidamento || []).reduce((s, v) => s + (v.provvigione || 0), 0);
-            data[month].affidamento += provAffidamento;
-            
-            // Ordine (Somma provvigioni veicoli ordinati)
-            const provOrdine = (p.veicoliOrdine || []).reduce((s, v) => s + (v.provvigione || 0), 0);
-            data[month].ordine += provOrdine;
+      const isAgentMatch = filterAgent === 'all' || p.agentId === filterAgent;
+      if (!isAgentMatch) return;
+
+      // Trattativa: Data Pratica
+      if (p.data) {
+        const d = new Date(p.data);
+        if (d.getFullYear() === filterYear) {
+          data[d.getMonth()].trattativa += (p.valoreTotale || 0);
+        }
+      }
+      
+      // Affidamento: Data Affidamento (o Richiesta se ancora in attesa)
+      const dateAff = p.dataAffidamento || p.dataRichiestaAffidamento;
+      if (dateAff) {
+        const d = new Date(dateAff);
+        if (d.getFullYear() === filterYear) {
+          const provAffidamento = (p.veicoliAffidamento || []).reduce((s, v) => s + (v.provvigione || 0), 0);
+          data[d.getMonth()].affidamento += provAffidamento;
+        }
+      }
+      
+      // Ordine: Data Firma (dataOrdine)
+      if (p.dataOrdine) {
+        const d = new Date(p.dataOrdine);
+        if (d.getFullYear() === filterYear) {
+          const provOrdine = (p.veicoliOrdine || []).reduce((s, v) => s + (v.provvigione || 0), 0);
+          data[d.getMonth()].ordine += provOrdine;
         }
       }
     });
@@ -139,22 +161,22 @@ export const Dashboard: React.FC = () => {
   }, [practices, filterYear, filterMonth, filterAgent]);
 
   const practiceStatusData = useMemo(() => [
-    { name: 'In Corso', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, color: '#dc2626' }, 
-    { name: 'Chiuse Positivamente', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, color: '#171717' },  
-    { name: 'Perse / Fallite', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, color: '#94a3b8' },
-  ].filter(d => d.value > 0), [filteredPractices]);
+    { name: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, color: '#dc2626' }, 
+    { name: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, color: '#171717' },  
+    { name: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, color: '#94a3b8' },
+  ].filter(d => d.value > 0), [filteredTrattative]);
 
   const creditStatusData = useMemo(() => [
-    { name: 'In Attesa', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, color: '#f59e0b' },
-    { name: 'Bocciati', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, color: '#be123c' },
-    { name: 'Approvati', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, color: '#10b981' },
-  ].filter(d => d.value > 0), [filteredPractices]);
+    { name: 'In Attesa', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, color: '#f59e0b' },
+    { name: 'Bocciati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, color: '#be123c' },
+    { name: 'Approvati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, color: '#10b981' },
+  ].filter(d => d.value > 0), [filteredAffidamenti]);
 
   const orderStatusData = useMemo(() => [
-    { name: 'Inviati', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, color: '#059669' },
-    { name: 'Non Inviati', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, color: '#64748b' },
-    { name: 'Annullati', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, color: '#e11d48' },
-  ].filter(d => d.value > 0), [filteredPractices]);
+    { name: 'Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, color: '#059669' },
+    { name: 'Non Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, color: '#64748b' },
+    { name: 'Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, color: '#e11d48' },
+  ].filter(d => d.value > 0), [filteredOrdini]);
 
   if (loading) return <div className="text-center py-10 text-gray-500">Caricamento dati...</div>;
   if (!user) return null;
@@ -217,7 +239,7 @@ export const Dashboard: React.FC = () => {
           <div className="bg-amber-50 border-l-4 border-amber-500 p-6 flex items-start gap-4 rounded-xl">
               <Database className="text-amber-500 flex-shrink-0" size={24} />
               <div>
-                  <h3 className="font-bold text-amber-900 uppercase text-xs tracking-widest mb-1">
+                  <h3 className="font-bold text-amber-900 uppercase text-xs tracking-widest">
                     {(user.isAdmin || user.isTeamLeader) ? "Database Globale Vuoto" : "Nessuna pratica trovata"}
                   </h3>
                   <p className="text-amber-800 text-sm">
@@ -306,7 +328,7 @@ export const Dashboard: React.FC = () => {
 
           <div className="bg-white border border-gray-200 p-6 shadow-sm flex items-center justify-between min-h-[110px] group hover:bg-gray-50 transition-all rounded-2xl">
               <div className="flex flex-col">
-                  <span className="text-red-600 font-black uppercase text-[9px] tracking-widest mb-1">Opportunità</span>
+                  <span className="text-red-600 font-black uppercase text-[9px] tracking-widest mb-1">Opportunità Periodo</span>
                   <h4 className="text-gray-900 font-black text-2xl tracking-tight leading-none uppercase">Veicoli: {totalPotenzialiVeicoli}</h4>
               </div>
               <div className="bg-black text-white p-3.5 shadow-lg group-hover:bg-red-600 transition-all rounded-xl">
@@ -318,33 +340,33 @@ export const Dashboard: React.FC = () => {
       {/* 3. DETAIL BOXES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <DetailBox 
-            title="SITUAZIONE TRATTATIVE" 
+            title="SITUAZIONE TRATTATIVE (Data Pratica)" 
             type="statoTrattativa"
             chartData={practiceStatusData}
             items={[
-                { label: 'In Corso', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, filterVal: DealStatus.IN_CORSO },
-                { label: 'Chiuse Positivamente', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, filterVal: DealStatus.CHIUSA },
-                { label: 'Perse / Fallite', value: filteredPractices.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, filterVal: DealStatus.FALLITA },
+                { label: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, filterVal: DealStatus.IN_CORSO },
+                { label: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, filterVal: DealStatus.CHIUSA },
+                { label: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, filterVal: DealStatus.FALLITA },
             ]}
         />
         <DetailBox 
-            title="SITUAZIONE AFFIDAMENTI" 
+            title="SITUAZIONE AFFIDAMENTI (Esito Credito)" 
             type="statoAffidamento"
             chartData={creditStatusData}
             items={[
-                { label: 'In Attesa Esito', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, filterVal: CreditStatus.IN_ATTESA },
-                { label: 'Approvati (Totali)', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, filterVal: CreditStatus.APPROVATO },
-                { label: 'Bocciati / Negati', value: filteredPractices.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, filterVal: DealStatus.FALLITA },
+                { label: 'In Attesa Esito', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, filterVal: CreditStatus.IN_ATTESA },
+                { label: 'Approvati (Periodo)', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, filterVal: CreditStatus.APPROVATO },
+                { label: 'Bocciati / Negati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, filterVal: CreditStatus.BOCCIATO },
             ]}
         />
         <DetailBox 
-            title="SITUAZIONE ORDINI" 
+            title="SITUAZIONE ORDINI (Data Firma)" 
             type="statoOrdine"
             chartData={orderStatusData}
             items={[
-                { label: 'Ordini Inviati', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, filterVal: OrderStatus.INVIATO },
-                { label: 'In Attesa Invio', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, filterVal: OrderStatus.NON_INVIATO },
-                { label: 'Ordini Annullati', value: filteredPractices.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, filterVal: OrderStatus.ANNULLATO },
+                { label: 'Ordini Firmati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, filterVal: OrderStatus.INVIATO },
+                { label: 'In Attesa Invio', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, filterVal: OrderStatus.NON_INVIATO },
+                { label: 'Ordini Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, filterVal: OrderStatus.ANNULLATO },
             ]}
         />
       </div>
@@ -353,7 +375,7 @@ export const Dashboard: React.FC = () => {
       <div className="space-y-8">
         <div className="bg-white p-6 shadow-sm border border-gray-200 rounded-2xl">
           <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-              <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Andamento Provvigionale {filterYear}</h3>
+              <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest">Andamento Provvigionale {filterYear} (Per Data Evento)</h3>
               <div className="text-[9px] font-bold text-gray-400 italic uppercase">Dati espressi in Euro (€)</div>
           </div>
           <div className="h-72 w-full">
@@ -368,9 +390,9 @@ export const Dashboard: React.FC = () => {
                   formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.toUpperCase()]}
                 />
                 <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
-                <Bar dataKey="trattativa" name="Trattativa (Stima)" fill="#dc2626" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="affidamento" name="Affidamento (Approvata)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="ordine" name="Ordine (Firmata)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="trattativa" name="Trattativa (Apertura)" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="affidamento" name="Affidamento (Esito)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ordine" name="Ordine (Firma)" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
