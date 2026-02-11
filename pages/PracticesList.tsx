@@ -317,6 +317,17 @@ export const PracticesList: React.FC = () => {
     </div>
   );
 
+  // Helper per determinare il valore di "Prov. Attesa"
+  const getProvAttesaValue = (practice: Practice): number | undefined => {
+    const provvigioneOrdine = (practice.veicoliOrdine || []).reduce((sum, v) => sum + (v.provvigione || 0), 0);
+    if (provvigioneOrdine > 0) return provvigioneOrdine;
+
+    const provvigioneAffidamento = (practice.veicoliAffidamento || []).reduce((sum, v) => sum + (v.provvigione || 0), 0);
+    if (provvigioneAffidamento > 0) return provvigioneAffidamento;
+
+    return practice.valoreTotale; // Valore della trattativa
+  };
+
   if (loading) return <div className="p-20 text-center"><div className="w-10 h-10 border-4 border-red-600 border-t-transparent animate-spin rounded-full mx-auto"></div><p className="mt-4 text-[10px] font-black uppercase text-gray-400 tracking-widest">Sincronizzazione dati...</p></div>;
   if (!user) return null;
 
@@ -521,7 +532,7 @@ export const PracticesList: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                            <span className="text-sm font-black text-gray-900 block">{formatIT(practice.valoreTotale)}</span>
+                            <span className="text-sm font-black text-gray-900 block">{formatIT(getProvAttesaValue(practice))}</span> {/* Updated here */}
                             {user?.isAdmin && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setPracticeToDelete(practice); }}
@@ -551,7 +562,7 @@ export const PracticesList: React.FC = () => {
               <tr>
                 <th className="w-16 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Tipo</th>
                 {isPowerUser && (
-                    <th className="w-48 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th>
+                    <th className="w-48 px-6 py-5 font-black uppercase text-[0.2em] text-gray-500">Agente</th>
                 )}
                 <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
                 <th className="w-40 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>
@@ -583,7 +594,7 @@ export const PracticesList: React.FC = () => {
                     <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">{practice.customerData?.nome}</div>
                     <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5 truncate">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
                   </td>
-                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>{formatIT(practice.valoreTotale)}</td>
+                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>{formatIT(getProvAttesaValue(practice))}</td> {/* Updated here */}
                   <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoTrattativa} /></td>
                   <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoAffidamento} /></td>
                   <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoOrdine} /></td>
