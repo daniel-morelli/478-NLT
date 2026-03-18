@@ -5,7 +5,7 @@ import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Reminder, Agent } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { 
-  BarChart, 
+  BarChart as RechartsBarChart, 
   Bar, 
   XAxis, 
   YAxis, 
@@ -17,7 +17,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { Clock, AlertCircle, User, Car, AlertTriangle, ChevronRight, Database, Calendar, Briefcase, ShoppingCart, ShieldCheck } from 'lucide-react';
+import { Clock, AlertCircle, User, Car, AlertTriangle, ChevronRight, Database, Calendar, Briefcase, ShoppingCart, ShieldCheck, BarChart } from 'lucide-react';
 
 const MESI_FULL = [
   'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
@@ -171,21 +171,21 @@ export const Dashboard: React.FC = () => {
   }, [practices, filterYear, filterAgent]);
 
   const practiceStatusData = useMemo(() => [
-    { name: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, color: '#dc2626' }, 
-    { name: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, color: '#171717' },  
-    { name: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, color: '#94a3b8' },
+    { name: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), color: '#dc2626' }, 
+    { name: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), color: '#171717' },  
+    { name: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), color: '#94a3b8' },
   ].filter(d => d.value > 0), [filteredTrattative]);
 
   const creditStatusData = useMemo(() => [
-    { name: 'In Attesa', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, color: '#f59e0b' },
-    { name: 'Bocciati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, color: '#be123c' },
-    { name: 'Approvati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, color: '#10b981' },
+    { name: 'In Attesa', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), color: '#f59e0b' },
+    { name: 'Bocciati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), color: '#be123c' },
+    { name: 'Approvati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), color: '#10b981' },
   ].filter(d => d.value > 0), [filteredAffidamenti]);
 
   const orderStatusData = useMemo(() => [
-    { name: 'Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, color: '#059669' },
-    { name: 'Non Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, color: '#64748b' },
-    { name: 'Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, color: '#e11d48' },
+    { name: 'Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), color: '#059669' },
+    { name: 'Non Inviati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), color: '#64748b' },
+    { name: 'Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), color: '#e11d48' },
   ].filter(d => d.value > 0), [filteredOrdini]);
 
   if (loading) return <div className="text-center py-20"><div className="w-10 h-10 border-4 border-red-600 border-t-transparent animate-spin rounded-full mx-auto"></div></div>;
@@ -315,19 +315,19 @@ export const Dashboard: React.FC = () => {
       {/* 3. DETAIL BOXES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <DetailBox title="SITUAZIONE TRATTATIVE" type="statoTrattativa" chartData={practiceStatusData} items={[
-            { label: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).length, filterVal: DealStatus.IN_CORSO },
-            { label: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).length, filterVal: DealStatus.CHIUSA },
-            { label: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).length, filterVal: DealStatus.FALLITA },
+            { label: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), filterVal: DealStatus.IN_CORSO },
+            { label: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), filterVal: DealStatus.CHIUSA },
+            { label: 'Perse / Fallite', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.FALLITA).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), filterVal: DealStatus.FALLITA },
         ]} />
         <DetailBox title="SITUAZIONE AFFIDAMENTI" type="statoAffidamento" chartData={creditStatusData} items={[
-            { label: 'In Attesa Esito', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).length, filterVal: CreditStatus.IN_ATTESA },
-            { label: 'Approvati (Periodo)', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).length, filterVal: CreditStatus.APPROVATO },
-            { label: 'Bocciati / Negati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).length, filterVal: CreditStatus.BOCCIATO },
+            { label: 'In Attesa Esito', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.IN_ATTESA).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), filterVal: CreditStatus.IN_ATTESA },
+            { label: 'Approvati (Periodo)', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.APPROVATO || p.statoAffidamento === CreditStatus.APPROVATO_CON_CONDIZIONI).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), filterVal: CreditStatus.APPROVATO },
+            { label: 'Bocciati / Negati', value: filteredAffidamenti.filter(p => p.statoAffidamento === CreditStatus.BOCCIATO).reduce((acc, p) => acc + (p.veicoliAffidamento?.length || 0), 0), filterVal: CreditStatus.BOCCIATO },
         ]} />
         <DetailBox title="SITUAZIONE ORDINI" type="statoOrdine" chartData={orderStatusData} items={[
-            { label: 'Ordini Firmati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).length, filterVal: OrderStatus.INVIATO },
-            { label: 'In Attesa Invio', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).length, filterVal: OrderStatus.NON_INVIATO },
-            { label: 'Ordini Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).length, filterVal: OrderStatus.ANNULLATO },
+            { label: 'Ordini Firmati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.INVIATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), filterVal: OrderStatus.INVIATO },
+            { label: 'In Attesa Invio', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.NON_INVIATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), filterVal: OrderStatus.NON_INVIATO },
+            { label: 'Ordini Annullati', value: filteredOrdini.filter(p => p.statoOrdine === OrderStatus.ANNULLATO).reduce((acc, p) => acc + (p.veicoliOrdine?.length || 0), 0), filterVal: OrderStatus.ANNULLATO },
         ]} />
       </div>
 
@@ -341,7 +341,7 @@ export const Dashboard: React.FC = () => {
         </div>
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthlyChartData}>
+            <RechartsBarChart data={monthlyChartData}>
               <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f3f4f6" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
               <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} tickFormatter={(val) => `€${val/1000}k`} />
@@ -354,7 +354,7 @@ export const Dashboard: React.FC = () => {
               <Bar dataKey="trattativa" name="Trattativa (Apertura)" fill="#dc2626" radius={[4, 4, 0, 0]} />
               <Bar dataKey="affidamento" name="Affidamento (Esito)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
               <Bar dataKey="ordine" name="Ordine (Firma)" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
+            </RechartsBarChart>
           </ResponsiveContainer>
         </div>
       </div>
