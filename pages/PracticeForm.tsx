@@ -251,7 +251,7 @@ export const PracticeForm: React.FC = () => {
     setLoading(true);
     try {
       await DbService.savePractice({ ...formData, agentId: formData.agentId });
-      navigate('/practices');
+      navigate(-1);
     } catch (error: any) {
       setErrorMessage(`Errore: ${error.message}`);
     } finally {
@@ -569,7 +569,7 @@ export const PracticeForm: React.FC = () => {
                 {activeTab === 'promemoria' && <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">{id ? <PracticeReminders practiceId={id} /> : <div className="py-20 text-center text-gray-300 font-black uppercase tracking-widest">Salva per i promemoria</div>}</div>}
 
                 <div className="mt-16 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-end gap-4 max-w-5xl mx-auto">
-                    <button type="button" onClick={() => navigate('/practices')} className="px-8 py-4 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Annulla</button>
+                    <button type="button" onClick={() => navigate(-1)} className="px-8 py-4 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Annulla</button>
                     {!isPracticeLocked && (<button type="submit" disabled={loading} className="px-12 py-4 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center justify-center gap-2 rounded-2xl transition-all transform active:scale-95"><Save size={18} /> {loading ? 'SINCRONIZZAZIONE...' : 'Salva Pratica'}</button>)}
                 </div>
             </form>

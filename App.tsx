@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { PracticesList } from './pages/PracticesList';
+import { OrdersList } from './pages/OrdersList';
 import { PracticeForm } from './pages/PracticeForm';
 import { CustomersList } from './pages/CustomersList';
 import { AdminAgents } from './pages/AdminAgents';
@@ -50,6 +51,7 @@ const AppRoutes = () => {
             
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/practices" element={<ProtectedRoute><PracticesList /></ProtectedRoute>} />
+            <Route path="/orders" element={<ProtectedRoute><OrdersList /></ProtectedRoute>} />
             <Route path="/practices/new" element={<ProtectedRoute><PracticeForm /></ProtectedRoute>} />
             <Route path="/practices/:id" element={<ProtectedRoute><PracticeForm /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><CustomersList /></ProtectedRoute>} />

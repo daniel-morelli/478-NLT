@@ -68,15 +68,17 @@ export const PracticesList: React.FC = () => {
     return filtered.reduce((acc, p) => {
       const vAffidamento = p.veicoliAffidamento?.length || 0;
       const vOrdine = p.veicoliOrdine?.length || 0;
+      const vLocked = p.isLocked ? vOrdine : 0;
       const commOrdine = p.veicoliOrdine?.reduce((vAcc, v) => vAcc + (v.provvigione || 0), 0) || 0;
       
       return {
         count: acc.count + 1,
         vehiclesAffidamento: acc.vehiclesAffidamento + vAffidamento,
         vehiclesOrdine: acc.vehiclesOrdine + vOrdine,
+        lockedVehiclesOrdine: acc.lockedVehiclesOrdine + vLocked,
         totalCommissions: acc.totalCommissions + commOrdine
       };
-    }, { count: 0, vehiclesAffidamento: 0, vehiclesOrdine: 0, totalCommissions: 0 });
+    }, { count: 0, vehiclesAffidamento: 0, vehiclesOrdine: 0, lockedVehiclesOrdine: 0, totalCommissions: 0 });
   }, [filtered]);
 
   // 1. CARICAMENTO FILTRI DA SESSION STORAGE ALL'AVVIO
@@ -813,6 +815,13 @@ export const PracticesList: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Veicoli Ordine:</span>
               <span className="text-sm font-black text-white tabular-nums">{summaryStats.vehiclesOrdine}</span>
+            </div>
+            
+            <div className="hidden md:block w-px h-4 bg-white/10"></div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Ordini Bloccati:</span>
+              <span className="text-sm font-black text-emerald-500 tabular-nums">{summaryStats.lockedVehiclesOrdine}</span>
             </div>
             
             <div className="hidden md:block w-px h-4 bg-white/10"></div>

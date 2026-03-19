@@ -170,6 +170,26 @@ export const Dashboard: React.FC = () => {
     return data;
   }, [practices, filterYear, filterAgent]);
 
+  const lockedOrdersChartData = useMemo(() => {
+    const data = Array(12).fill(0).map((_, i) => ({
+      name: MESI_FULL[i].substring(0, 3).toUpperCase(),
+      veicoli: 0
+    }));
+    
+    practices.forEach(p => {
+      if (!matchesAgent(p.agentId)) return;
+      if (!p.isLocked) return;
+      
+      if (p.dataOrdine) {
+        const d = new Date(p.dataOrdine);
+        if (d.getFullYear() === filterYear) {
+          data[d.getMonth()].veicoli += (p.veicoliOrdine?.length || 0);
+        }
+      }
+    });
+    return data;
+  }, [practices, filterYear, filterAgent]);
+
   const practiceStatusData = useMemo(() => [
     { name: 'In Corso', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.IN_CORSO).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), color: '#dc2626' }, 
     { name: 'Chiuse Positivamente', value: filteredTrattative.filter(p => p.statoTrattativa === DealStatus.CHIUSA).reduce((acc, p) => acc + (p.numeroVeicoli || 0), 0), color: '#171717' },  
@@ -332,30 +352,58 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* 4. CHARTS SECTION */}
-      <div className="bg-white p-6 shadow-sm border border-gray-200 rounded-[2rem]">
-        <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
-            <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
-                <BarChart size={16} className="text-red-600" /> Andamento Provvigionale {filterYear}
-            </h3>
-            <div className="text-[9px] font-bold text-gray-400 italic uppercase">Dati aggregati mensili (€)</div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Locked Orders Vehicles Chart */}
+        <div className="bg-white p-6 shadow-sm border border-gray-200 rounded-[2rem]">
+          <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+              <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                  <ShoppingCart size={16} className="text-red-600" /> Veicoli in Ordine (confermati dal backoffice) {filterYear}
+              </h3>
+              <div className="text-[9px] font-bold text-gray-400 italic uppercase">Conteggio veicoli per mese</div>
+          </div>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart data={lockedOrdersChartData}>
+                <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f3f4f6" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} allowDecimals={false} />
+                <Tooltip 
+                  cursor={{fill: '#fef2f2', radius: 8}}
+                  contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
+                  formatter={(value: number) => [value, 'VEICOLI']}
+                />
+                <Bar dataKey="veicoli" name="Veicoli" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="h-80 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <RechartsBarChart data={monthlyChartData}>
-              <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f3f4f6" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} tickFormatter={(val) => `€${val/1000}k`} />
-              <Tooltip 
-                cursor={{fill: '#fef2f2', radius: 8}}
-                contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
-                formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.toUpperCase()]}
-              />
-              <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
-              <Bar dataKey="trattativa" name="Trattativa (Apertura)" fill="#dc2626" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="affidamento" name="Affidamento (Esito)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="ordine" name="Ordine (Firma)" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </RechartsBarChart>
-          </ResponsiveContainer>
+
+        {/* Commission Trend Chart */}
+        <div className="bg-white p-6 shadow-sm border border-gray-200 rounded-[2rem]">
+          <div className="flex justify-between items-center mb-8 border-b border-gray-100 pb-4">
+              <h3 className="text-xs font-black text-gray-900 uppercase tracking-widest flex items-center gap-2">
+                  <BarChart size={16} className="text-red-600" /> Andamento Provvigionale {filterYear}
+              </h3>
+              <div className="text-[9px] font-bold text-gray-400 italic uppercase">Dati aggregati mensili (€)</div>
+          </div>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsBarChart data={monthlyChartData}>
+                <CartesianGrid strokeDasharray="2 2" vertical={false} stroke="#f3f4f6" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9, fontWeight: 'bold'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 9}} tickFormatter={(val) => `€${val/1000}k`} />
+                <Tooltip 
+                  cursor={{fill: '#fef2f2', radius: 8}}
+                  contentStyle={{backgroundColor: '#000', color: '#fff', borderRadius: '12px', border: 'none', fontWeight: 'bold', fontSize: '10px'}}
+                  formatter={(value: number, name: string) => [`€ ${value.toLocaleString('it-IT')}`, name.toUpperCase()]}
+                />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{fontSize: '9px', fontWeight: 'bold', textTransform: 'uppercase', paddingBottom: '20px'}} />
+                <Bar dataKey="trattativa" name="Trattativa (Apertura)" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="affidamento" name="Affidamento (Esito)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ordine" name="Ordine (Firma)" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </RechartsBarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 

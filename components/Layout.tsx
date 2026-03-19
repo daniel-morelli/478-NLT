@@ -21,7 +21,8 @@ import {
   Zap,
   Settings,
   Database,
-  Target
+  Target,
+  ShoppingCart
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -97,6 +98,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             <p className="px-4 pb-2 text-[9px] font-black text-gray-600 uppercase tracking-[0.3em]">Principale</p>
             <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
             <NavItem to="/practices" icon={FileText} label={isPowerUser ? "Pratiche Globali" : "Le Mie Pratiche"} />
+            <NavItem to="/orders" icon={ShoppingCart} label="Veicoli in Ordine" />
             <NavItem to="/customers" icon={Users2} label="Anagrafica Clienti" />
             <NavItem to="/calendar" icon={Calendar} label="Scadenziario" />
             <NavItem to="/profile" icon={UserCircle} label="Il mio Profilo" />
