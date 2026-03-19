@@ -233,71 +233,13 @@ export const AdminAgents: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-black text-white">
-                <tr>
-                    <th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Anagrafica</th>
-                    <th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Ruoli Assegnati</th>
-                    <th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-center">N. Pratiche</th>
-                    <th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Stato</th>
-                    <th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-right">Gestione</th>
-                </tr>
+                <tr><th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Anagrafica</th><th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Ruoli Assegnati</th><th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-center">N. Pratiche</th><th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Stato</th><th className="px-6 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-right">Gestione</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
                 {agents.map(agent => {
                     const count = practiceCounts.get(agent.id) || 0;
                     return (
-                        <tr key={agent.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4">
-                                <div className="font-black text-gray-900 uppercase tracking-tighter text-sm">{agent.nome}</div>
-                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{agent.email}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                                <div className="flex flex-wrap gap-1.5 items-start">
-                                    {agent.isAdmin && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-black text-white text-[9px] font-black uppercase tracking-tighter border border-gray-700 rounded-lg"><Shield size={10}/> Admin</span>}
-                                    {agent.isTeamLeader && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter shadow-sm rounded-lg"><Star size={10}/> Team Leader</span>}
-                                    {agent.isAgent && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-tighter border border-red-200 rounded-lg"><User size={10}/> Agente</span>}
-                                </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                                <div className="inline-flex items-center gap-2 text-gray-900 px-3 py-1 font-black text-xs rounded-xl border border-gray-100 shadow-sm">
-                                    <FileStack size={14} className="text-red-600" />
-                                    <span>{count}</span>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4">
-                                {agent.isActive ? 
-                                    <span className="text-green-600 text-[9px] font-black flex items-center gap-1 uppercase tracking-widest bg-green-50 px-3 py-1 border border-green-100 rounded-full"><Activity size={14}/> Attivo</span> : 
-                                    <span className="text-gray-400 text-[9px] font-black flex items-center gap-1 uppercase tracking-widest bg-gray-50 px-3 py-1 border border-gray-200 rounded-full"><UserX size={14}/> Disabilitato</span>
-                                }
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                                <button 
-                                    onClick={() => handleEdit(agent)} 
-                                    className="text-gray-400 hover:text-black p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors"
-                                >
-                                    Modifica
-                                </button>
-                                <button 
-                                    onClick={() => toggleActive(agent)} 
-                                    className={`${agent.isActive ? 'text-amber-600 hover:text-amber-800' : 'text-green-600 hover:text-green-800'} p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors`}
-                                >
-                                    {agent.isActive ? 'Disabilita' : 'Attiva'}
-                                </button>
-                                
-                                {count === 0 ? (
-                                    <button 
-                                        onClick={() => setAgentToDelete(agent)} 
-                                        className="text-red-600 hover:text-red-800 p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors"
-                                        title="Elimina definitivamente"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                ) : (
-                                    <span className="inline-block p-2 text-gray-300" title="Impossibile eliminare: l'agente ha pratiche collegate. Usa 'Disabilita'.">
-                                        <Lock size={16} />
-                                    </span>
-                                )}
-                            </td>
-                        </tr>
+                        <tr key={agent.id} className="hover:bg-gray-50 transition-colors"><td className="px-6 py-4"><div className="font-black text-gray-900 uppercase tracking-tighter text-sm">{agent.nome}</div><div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{agent.email}</div></td><td className="px-6 py-4"><div className="flex flex-wrap gap-1.5 items-start">{agent.isAdmin && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-black text-white text-[9px] font-black uppercase tracking-tighter border border-gray-700 rounded-lg"><Shield size={10}/> Admin</span>}{agent.isTeamLeader && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-black uppercase tracking-tighter shadow-sm rounded-lg"><Star size={10}/> Team Leader</span>}{agent.isAgent && <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-tighter border border-red-200 rounded-lg"><User size={10}/> Agente</span>}</div></td><td className="px-6 py-4 text-center"><div className="inline-flex items-center gap-2 text-gray-900 px-3 py-1 font-black text-xs rounded-xl border border-gray-100 shadow-sm"><FileStack size={14} className="text-red-600" /><span>{count}</span></div></td><td className="px-6 py-4">{agent.isActive ? <span className="text-green-600 text-[9px] font-black flex items-center gap-1 uppercase tracking-widest bg-green-50 px-3 py-1 border border-green-100 rounded-full"><Activity size={14}/> Attivo</span> : <span className="text-gray-400 text-[9px] font-black flex items-center gap-1 uppercase tracking-widest bg-gray-50 px-3 py-1 border border-gray-200 rounded-full"><UserX size={14}/> Disabilitato</span>}</td><td className="px-6 py-4 text-right"><button onClick={() => handleEdit(agent)} className="text-gray-400 hover:text-black p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors">Modifica</button><button onClick={() => toggleActive(agent)} className={`${agent.isActive ? 'text-amber-600 hover:text-amber-800' : 'text-green-600 hover:text-green-800'} p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors`}>{agent.isActive ? 'Disabilita' : 'Attiva'}</button>{count === 0 ? (<button onClick={() => setAgentToDelete(agent)} className="text-red-600 hover:text-red-800 p-2 font-black text-[10px] uppercase tracking-[0.15em] transition-colors" title="Elimina definitivamente"><Trash2 size={16} /></button>) : (<span className="inline-block p-2 text-gray-300" title="Impossibile eliminare: l'agente ha pratiche collegate. Usa 'Disabilita'."><Lock size={16} /></span>)}</td></tr>
                     );
                 })}
             </tbody>

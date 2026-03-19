@@ -374,13 +374,7 @@ export const Dashboard: React.FC = () => {
         <div className="overflow-x-auto">
             <table className="w-full text-left table-auto">
                 <thead>
-                    <tr className="bg-gray-50 text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                        <th className="px-4 py-2 w-28">Stato</th>
-                        <th className="px-4 py-2">Cliente / Provider</th>
-                        {(user.isAdmin || user.isTeamLeader) && <th className="px-4 py-2 w-32">Agente</th>}
-                        <th className="px-4 py-2 w-28">Date</th>
-                        <th className="px-4 py-2 text-right w-28">Provv.</th>
-                    </tr>
+                    <tr className="bg-gray-50 text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-100"><th className="px-4 py-2 w-20">N. Prat.</th><th className="px-4 py-2 w-28">Stato</th><th className="px-4 py-2">Cliente / Provider</th>{(user.isAdmin || user.isTeamLeader) && <th className="px-4 py-2 w-32">Agente</th>}<th className="px-4 py-2 w-28">Date</th><th className="px-4 py-2 text-right w-28">Provv.</th></tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                     {participatingPractices.length > 0 ? participatingPractices.map(p => {
@@ -388,41 +382,18 @@ export const Dashboard: React.FC = () => {
                         return (
                             <tr key={p.id} onClick={() => navigate(`/practices/${p.id}`)} className="hover:bg-red-50/20 transition-colors cursor-pointer group">
                                 <td className="px-4 py-2">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`p-1 rounded ${p.statoOrdine === OrderStatus.INVIATO ? 'bg-emerald-100 text-emerald-600' : p.statoAffidamento ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                                            {p.statoOrdine === OrderStatus.INVIATO ? <ShoppingCart size={10}/> : p.statoAffidamento ? <ShieldCheck size={10}/> : <Briefcase size={10}/>}
+                                    {p.practiceNumber ? (
+                                        <div className="text-[8px] font-black text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded uppercase tabular-nums">
+                                            {p.practiceYear}/{p.practiceNumber}
                                         </div>
-                                        <span className="text-[8px] font-black uppercase text-gray-500">
-                                            {p.statoOrdine === OrderStatus.INVIATO ? 'ORD' : p.statoAffidamento ? 'AFF' : 'TRAT'}
-                                        </span>
-                                    </div>
+                                    ) : (
+                                        <span className="text-[8px] text-gray-300">-</span>
+                                    )}
                                 </td>
-                                <td className="px-4 py-2">
-                                    <div className="font-black text-gray-900 uppercase text-[10px] group-hover:text-red-600 truncate max-w-[150px]">{p.customerData?.nome}</div>
-                                    <div className="text-[8px] text-gray-400 font-bold uppercase truncate">{p.provider}</div>
-                                </td>
-                                {(user.isAdmin || user.isTeamLeader) && (
-                                    <td className="px-4 py-2">
-                                        <span className="text-[8px] font-black text-red-700 bg-red-50 px-1.5 py-0.5 rounded uppercase">
-                                            {p.agentName?.split(' ')[0]}
-                                        </span>
-                                    </td>
-                                )}
-                                <td className="px-4 py-2">
-                                    <div className="text-[8px] font-bold text-gray-400 uppercase">
-                                        {new Date(p.data).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})}
-                                        {p.dataOrdine && <span className="text-emerald-600"> → {new Date(p.dataOrdine).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})}</span>}
-                                    </div>
-                                </td>
-                                <td className="px-4 py-2 text-right font-black text-gray-900 text-[10px] tabular-nums">
-                                    {formatCurrency(provv)}
-                                </td>
-                            </tr>
+                                <td className="px-4 py-2"><div className="flex items-center gap-2"><div className={`p-1 rounded ${p.statoOrdine === OrderStatus.INVIATO ? 'bg-emerald-100 text-emerald-600' : p.statoAffidamento ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>{p.statoOrdine === OrderStatus.INVIATO ? <ShoppingCart size={10}/> : p.statoAffidamento ? <ShieldCheck size={10}/> : <Briefcase size={10}/>}</div><span className="text-[8px] font-black uppercase text-gray-500">{p.statoOrdine === OrderStatus.INVIATO ? 'ORD' : p.statoAffidamento ? 'AFF' : 'TRAT'}</span></div></td><td className="px-4 py-2"><div className="font-black text-gray-900 uppercase text-[10px] group-hover:text-red-600 truncate max-w-[150px]">{p.customerData?.nome}</div><div className="text-[8px] text-gray-400 font-bold uppercase truncate">{p.provider}</div></td>{(user.isAdmin || user.isTeamLeader) && (<td className="px-4 py-2"><span className="text-[8px] font-black text-red-700 bg-red-50 px-1.5 py-0.5 rounded uppercase">{p.agentName?.split(' ')[0]}</span></td>)}<td className="px-4 py-2"><div className="text-[8px] font-bold text-gray-400 uppercase">{new Date(p.data).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})}{p.dataOrdine && <span className="text-emerald-600"> → {new Date(p.dataOrdine).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'})}</span>}</div></td><td className="px-4 py-2 text-right font-black text-gray-900 text-[10px] tabular-nums">{formatCurrency(provv)}</td></tr>
                         );
                     }) : (
-                        <tr>
-                            <td colSpan={5} className="px-4 py-6 text-center text-gray-300 font-black uppercase tracking-widest text-[9px]">Nessuna pratica partecipante</td>
-                        </tr>
+                        <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-300 font-black uppercase tracking-widest text-[9px]">Nessuna pratica partecipante</td></tr>
                     )}
                 </tbody>
             </table>

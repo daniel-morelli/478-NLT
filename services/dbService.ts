@@ -63,6 +63,8 @@ const fromDbPractice = (p: any): Practice => ({
   annotazioneOrdine: p.annotazione_ordine ?? '',
   validoRappel: p.valido_rappel ?? '',
   isLocked: p.is_locked ?? false,
+  practiceNumber: p.practice_number,
+  practiceYear: p.practice_year,
   deletedAt: p.deleted_at
 });
 
@@ -94,6 +96,8 @@ const toDbPractice = (p: Partial<Practice>) => {
     annotazione_ordine: p.annotazioneOrdine ?? '',
     valido_rappel: p.validoRappel || null,
     is_locked: p.isLocked ?? false,
+    practice_number: p.practiceNumber,
+    practice_year: p.practiceYear,
     deleted_at: p.deletedAt || null
   };
   
@@ -270,8 +274,62 @@ export const DbService = {
     return resultPractices;
   },
 
+  backfillPracticeNumbers: async (): Promise<void> => {
+    if (!supabase) return;
+    
+    const { data: practices, error } = await supabase
+      .from('nlt_practices')
+      .select('id, data')
+      .is('deleted_at', null)
+      .order('data', { ascending: true });
+
+    if (error) {
+        console.error("Errore recupero pratiche per backfill:", error);
+        throw error;
+    }
+    if (!practices || practices.length === 0) return;
+
+    const yearCounters: { [key: number]: number } = {};
+    
+    for (const p of practices) {
+      const dateVal = p.data ? new Date(p.data) : new Date();
+      const year = isNaN(dateVal.getTime()) ? new Date().getFullYear() : dateVal.getFullYear();
+      
+      yearCounters[year] = (yearCounters[year] || 0) + 1;
+
+      const { error: updateError } = await supabase
+        .from('nlt_practices')
+        .update({
+          practice_number: yearCounters[year],
+          practice_year: year
+        })
+        .eq('id', p.id);
+
+      if (updateError) {
+          console.error(`Errore aggiornamento pratica ${p.id}:`, updateError);
+          throw updateError;
+      }
+    }
+  },
+
   savePractice: async (practice: Partial<Practice>): Promise<void> => {
     if (!supabase) return;
+    
+    if (!practice.id) {
+        // Calcolo numero pratica automatico per l'anno corrente
+        const year = new Date(practice.data || new Date()).getFullYear();
+        const { data: lastPractice } = await supabase
+            .from('nlt_practices')
+            .select('practice_number')
+            .eq('practice_year', year)
+            .order('practice_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        
+        practice.practiceNumber = (lastPractice?.practice_number || 0) + 1;
+        practice.practiceYear = year;
+    }
+
     const dbData = toDbPractice(practice);
     if (practice.id) {
         const { error } = await supabase.from('nlt_practices').update(dbData).eq('id', practice.id);

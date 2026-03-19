@@ -40,7 +40,7 @@ export const PracticesList: React.FC = () => {
   // Stato per la cancellazione
   const [practiceToDelete, setPracticeToDelete] = useState<Practice | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
+  
   // Stati Filtri
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
@@ -53,6 +53,11 @@ export const PracticesList: React.FC = () => {
   const [localOrderFilter, setLocalOrderFilter] = useState('all');
   const [localReminderFilter, setLocalReminderFilter] = useState('all');
   const [localClosingMonthFilter, setLocalClosingMonthFilter] = useState('all');
+  const [localPracticeNumberFilter, setLocalPracticeNumberFilter] = useState('');
+  const [localStepFilter, setLocalStepFilter] = useState('all');
+  const [localDateTypeFilter, setLocalDateTypeFilter] = useState('none');
+  const [localDateFromFilter, setLocalDateFromFilter] = useState('');
+  const [localDateToFilter, setLocalDateToFilter] = useState('');
   
   // Vista Admin Specifica
   const adminView = searchParams.get('adminView');
@@ -76,6 +81,11 @@ export const PracticesList: React.FC = () => {
             setLocalOrderFilter(parsed.order || 'all');
             setLocalReminderFilter(parsed.reminder || 'all');
             setLocalClosingMonthFilter(parsed.closingMonth || 'all');
+            setLocalPracticeNumberFilter(parsed.practiceNumber || '');
+            setLocalStepFilter(parsed.step || 'all');
+            setLocalDateTypeFilter(parsed.dateType || 'none');
+            setLocalDateFromFilter(parsed.dateFrom || '');
+            setLocalDateToFilter(parsed.dateTo || '');
             
             if (parsed.adminView) {
                 setSearchParams({ adminView: parsed.adminView });
@@ -147,10 +157,15 @@ export const PracticesList: React.FC = () => {
            order: localOrderFilter,
            reminder: localReminderFilter,
            closingMonth: localClosingMonthFilter,
+           practiceNumber: localPracticeNumberFilter,
+           step: localStepFilter,
+           dateType: localDateTypeFilter,
+           dateFrom: localDateFromFilter,
+           dateTo: localDateToFilter,
            adminView: adminView || undefined 
        }));
     }
-  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localSourceFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, localClosingMonthFilter, practices, reminders, loading, adminView]);
+  }, [search, localYearFilter, localAgentFilter, localProviderFilter, localSourceFilter, localDealFilter, localCreditFilter, localOrderFilter, localReminderFilter, localClosingMonthFilter, localPracticeNumberFilter, localStepFilter, localDateTypeFilter, localDateFromFilter, localDateToFilter, practices, reminders, loading, adminView]);
 
   const applyFilters = () => {
     let res = [...practices];
@@ -175,10 +190,13 @@ export const PracticesList: React.FC = () => {
           const s = search.toLowerCase();
           res = res.filter(p => (
               p.customerData?.nome?.toLowerCase().includes(s) || 
-              p.provider.toLowerCase().includes(s)
+              p.provider.toLowerCase().includes(s) ||
+              p.practiceNumber?.toString().includes(s)
           ));
         }
-        if (localYearFilter !== 'all') res = res.filter(p => new Date(p.data).getFullYear().toString() === localYearFilter);
+        if (localYearFilter !== 'all') {
+          res = res.filter(p => (p.practiceYear?.toString() || new Date(p.data).getFullYear().toString()) === localYearFilter);
+        }
         if (localAgentFilter !== 'all') res = res.filter(p => p.agentId === localAgentFilter);
         if (localProviderFilter !== 'all') res = res.filter(p => p.provider === localProviderFilter);
         if (localSourceFilter !== 'all') res = res.filter(p => p.dealSource === localSourceFilter);
@@ -186,6 +204,37 @@ export const PracticesList: React.FC = () => {
         if (localCreditFilter !== 'all') res = res.filter(p => p.statoAffidamento === localCreditFilter);
         if (localOrderFilter !== 'all') res = res.filter(p => p.statoOrdine === localOrderFilter);
         if (localClosingMonthFilter !== 'all') res = res.filter(p => p.mesePrevistoChiusura === localClosingMonthFilter);
+        if (localPracticeNumberFilter) {
+          res = res.filter(p => p.practiceNumber?.toString() === localPracticeNumberFilter);
+        }
+
+        if (localStepFilter !== 'all') {
+            res = res.filter(p => {
+                if (localStepFilter === 'ordine') return p.statoOrdine !== '';
+                if (localStepFilter === 'affidamento') return p.statoAffidamento !== '' && p.statoOrdine === '';
+                if (localStepFilter === 'trattativa') return p.statoAffidamento === '' && p.statoOrdine === '';
+                return true;
+            });
+        }
+
+        if (localDateTypeFilter !== 'none' && (localDateFromFilter || localDateToFilter)) {
+            res = res.filter(p => {
+                const dateStr = p[localDateTypeFilter as keyof Practice] as string;
+                if (!dateStr) return false;
+                const d = new Date(dateStr);
+                if (localDateFromFilter) {
+                    const from = new Date(localDateFromFilter);
+                    if (d < from) return false;
+                }
+                if (localDateToFilter) {
+                    const to = new Date(localDateToFilter);
+                    // Impostiamo a fine giornata
+                    to.setHours(23, 59, 59, 999);
+                    if (d > to) return false;
+                }
+                return true;
+            });
+        }
 
         if (localReminderFilter !== 'all') {
             const today = new Date();
@@ -216,6 +265,11 @@ export const PracticesList: React.FC = () => {
     setLocalOrderFilter('all');
     setLocalReminderFilter('all');
     setLocalClosingMonthFilter('all');
+    setLocalPracticeNumberFilter('');
+    setLocalStepFilter('all');
+    setLocalDateTypeFilter('none');
+    setLocalDateFromFilter('');
+    setLocalDateToFilter('');
     setSearchParams({});
     sessionStorage.removeItem('nlt_filters_v2');
   };
@@ -247,6 +301,9 @@ export const PracticesList: React.FC = () => {
       if (localOrderFilter !== 'all') count++;
       if (localReminderFilter !== 'all') count++;
       if (localClosingMonthFilter !== 'all') count++;
+      if (localPracticeNumberFilter) count++;
+      if (localStepFilter !== 'all') count++;
+      if (localDateTypeFilter !== 'none') count++;
       return count;
   };
 
@@ -354,13 +411,15 @@ export const PracticesList: React.FC = () => {
             </p>
         </div>
         {!adminView && (
-          <Link 
-            to="/practices/new" 
-            className="w-full md:w-auto text-center flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
-          >
-            <Plus size={18} />
-            Nuova Pratica
-          </Link>
+          <div className="flex gap-2 w-full md:w-auto">
+            <Link 
+              to="/practices/new" 
+              className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
+            >
+              <Plus size={18} />
+              Nuova Pratica
+            </Link>
+          </div>
         )}
       </div>
 
@@ -469,6 +528,53 @@ export const PracticesList: React.FC = () => {
                       ]}
                   />
                   <FilterSelect 
+                      label="Step Pratica" 
+                      icon={Layers}
+                      value={localStepFilter} 
+                      onChange={setLocalStepFilter}
+                      options={[
+                          {val: 'trattativa', label: 'Trattativa'},
+                          {val: 'affidamento', label: 'Affidamento'},
+                          {val: 'ordine', label: 'Ordine'}
+                      ]}
+                  />
+                  <FilterSelect 
+                      label="Tipo Data" 
+                      icon={Calendar}
+                      value={localDateTypeFilter} 
+                      onChange={setLocalDateTypeFilter}
+                      options={[
+                          {val: 'none', label: 'Nessuna Selezione'},
+                          {val: 'data', label: 'Data Pratica'},
+                          {val: 'dataAffidamento', label: 'Data Affidamento'},
+                          {val: 'dataOrdine', label: 'Data Ordine'}
+                      ]}
+                  />
+                  <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          <Calendar size={12} /> Data Da
+                      </label>
+                      <input 
+                          type="date"
+                          disabled={localDateTypeFilter === 'none'}
+                          value={localDateFromFilter}
+                          onChange={(e) => setLocalDateFromFilter(e.target.value)}
+                          className={`w-full bg-white border border-gray-200 px-3 py-2.5 text-xs font-bold uppercase tracking-tight outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all rounded-xl shadow-sm text-gray-900 ${localDateTypeFilter === 'none' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      />
+                  </div>
+                  <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          <Calendar size={12} /> Data A
+                      </label>
+                      <input 
+                          type="date"
+                          disabled={localDateTypeFilter === 'none'}
+                          value={localDateToFilter}
+                          onChange={(e) => setLocalDateToFilter(e.target.value)}
+                          className={`w-full bg-white border border-gray-200 px-3 py-2.5 text-xs font-bold uppercase tracking-tight outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all rounded-xl shadow-sm text-gray-900 ${localDateTypeFilter === 'none' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      />
+                  </div>
+                  <FilterSelect 
                       label="Fornitore Provider" 
                       icon={Briefcase}
                       value={localProviderFilter} 
@@ -496,6 +602,18 @@ export const PracticesList: React.FC = () => {
                       onChange={setLocalClosingMonthFilter}
                       options={getMeseAnnoOptions().map(opt => ({val: opt, label: opt}))}
                   />
+                  <div className="space-y-1.5 flex-1 min-w-[180px]">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+                          <Target size={12} /> N. Pratica
+                      </label>
+                      <input 
+                          type="number"
+                          value={localPracticeNumberFilter}
+                          onChange={(e) => setLocalPracticeNumberFilter(e.target.value)}
+                          placeholder="Es: 1"
+                          className="w-full bg-white border border-gray-200 px-3 py-2.5 text-xs font-bold uppercase tracking-tight outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all rounded-xl shadow-sm text-gray-900"
+                      />
+                  </div>
               </div>
           )}
         </div>
@@ -513,6 +631,9 @@ export const PracticesList: React.FC = () => {
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex-1" onClick={() => navigate(`/practices/${practice.id}`)}>
                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] font-black text-white bg-black px-2 py-1 rounded-lg uppercase tracking-widest">
+                                    {practice.practiceNumber ? `${practice.practiceYear}/${practice.practiceNumber}` : 'N/D'}
+                                </span>
                                 <TypeIcon type={practice.tipoTrattativa} />
                                 {practice.isLocked && (
                                   <span className="text-red-600">
@@ -560,66 +681,85 @@ export const PracticesList: React.FC = () => {
           <table className="w-full text-left table-fixed">
             <thead className="bg-black text-white">
               <tr>
-                <th className="w-16 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Tipo</th>
-                {isPowerUser && (
-                    <th className="w-48 px-6 py-5 font-black uppercase text-[0.2em] text-gray-500">Agente</th>
-                )}
-                <th className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>
-                <th className="w-40 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>
-                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>
-                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>
-                <th className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>
-                <th className="w-24 px-6 py-5 text-center font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Gestione</th>
+                {[
+                  <th key="n" className="w-24 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">N. Prat.</th>,
+                  <th key="t" className="w-16 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Tipo</th>,
+                  isPowerUser ? <th key="a" className="w-48 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Agente</th> : null,
+                  <th key="c" className="px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Dati Cliente</th>,
+                  <th key="v" className="w-40 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-right">Prov. Attesa</th>,
+                  <th key="st" className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Trattativa</th>,
+                  <th key="sa" className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Affidamento</th>,
+                  <th key="so" className="w-32 px-6 py-5 font-black uppercase text-[10px] tracking-[0.2em] text-gray-500 text-center">Ordine</th>,
+                  <th key="g" className="w-24 px-6 py-5 text-center font-black uppercase text-[10px] tracking-[0.2em] text-gray-500">Gestione</th>
+                ].filter(Boolean)}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((practice) => (
-                <tr 
-                  key={practice.id} 
-                  className="hover:bg-red-50/20 transition-all cursor-pointer group"
-                >
-                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
-                    <div className="flex justify-center">
-                        <TypeIcon type={practice.tipoTrattativa} />
-                    </div>
-                  </td>
-                  {isPowerUser && (
-                      <td className="px-6 py-5" onClick={() => navigate(`/practices/${practice.id}`)}>
-                          <div className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block max-w-full truncate">
-                            {practice.agentName}
-                          </div>
-                      </td>
-                  )}
-                  <td className="px-6 py-5 overflow-hidden" onClick={() => navigate(`/practices/${practice.id}`)}>
-                    <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">{practice.customerData?.nome}</div>
-                    <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5 truncate">{new Date(practice.data).toLocaleDateString()} • {practice.provider}</div>
-                  </td>
-                  <td className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>{formatIT(getProvAttesaValue(practice))}</td> {/* Updated here */}
-                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoTrattativa} /></td>
-                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoAffidamento} /></td>
-                  <td className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}><StatusBadge status={practice.statoOrdine} /></td>
-                  <td className="px-6 py-5">
-                      <div className="flex items-center justify-center gap-3">
-                          {practice.isLocked ? (
-                            <div className="bg-red-600 text-white p-1 rounded-md shadow-sm" title="Pratica Bloccata">
-                                <ShieldAlert size={14} />
-                            </div>
-                          ) : (
-                            <div className="bg-gray-100 text-gray-300 p-1 rounded-md" title="Sbloccata">
-                                <ShieldAlert size={14} />
-                            </div>
-                          )}
-                          {user?.isAdmin && (
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); setPracticeToDelete(practice); }}
-                                className="text-gray-300 hover:text-red-600 transition-colors"
-                                title="Elimina Pratica"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                          )}
+                <tr key={practice.id} className="hover:bg-red-50/20 transition-all cursor-pointer group">
+                  {[
+                    <td key="n" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <div className="text-[10px] font-black text-gray-900 bg-gray-100 px-2 py-1 rounded-lg uppercase tracking-widest inline-block">
+                        {practice.practiceNumber ? `${practice.practiceYear}/${practice.practiceNumber}` : (
+                          <span className="text-gray-300 italic">N/D</span>
+                        )}
                       </div>
-                  </td>
+                    </td>,
+                    <td key="t" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <div className="flex justify-center">
+                        <TypeIcon type={practice.tipoTrattativa} />
+                      </div>
+                    </td>,
+                    isPowerUser ? (
+                      <td key="a" className="px-6 py-5" onClick={() => navigate(`/practices/${practice.id}`)}>
+                        <div className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block max-w-full truncate">
+                          {practice.agentName}
+                        </div>
+                      </td>
+                    ) : null,
+                    <td key="c" className="px-6 py-5 overflow-hidden" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">
+                        {practice.customerData?.nome}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-black uppercase tracking-[0.15em] mt-0.5 truncate">
+                        {new Date(practice.data).toLocaleDateString()} • {practice.provider}
+                      </div>
+                    </td>,
+                    <td key="v" className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      {formatIT(getProvAttesaValue(practice))}
+                    </td>,
+                    <td key="st" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <StatusBadge status={practice.statoTrattativa} />
+                    </td>,
+                    <td key="sa" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <StatusBadge status={practice.statoAffidamento} />
+                    </td>,
+                    <td key="so" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <StatusBadge status={practice.statoOrdine} />
+                    </td>,
+                    <td key="g" className="px-6 py-5">
+                      <div className="flex items-center justify-center gap-3">
+                        {practice.isLocked ? (
+                          <div className="bg-red-600 text-white p-1 rounded-md shadow-sm" title="Pratica Bloccata">
+                            <ShieldAlert size={14} />
+                          </div>
+                        ) : (
+                          <div className="bg-gray-100 text-gray-300 p-1 rounded-md" title="Sbloccata">
+                            <ShieldAlert size={14} />
+                          </div>
+                        )}
+                        {user?.isAdmin && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setPracticeToDelete(practice); }} 
+                            className="text-gray-300 hover:text-red-600 transition-colors" 
+                            title="Elimina Pratica"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  ].filter(Boolean)}
                 </tr>
               ))}
             </tbody>

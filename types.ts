@@ -104,6 +104,8 @@ export interface Practice {
   veicoliOrdine: VehicleOrder[];
   validoRappel?: 'SI' | 'NO' | '';
   isLocked?: boolean;
+  practiceNumber?: number;
+  practiceYear?: number;
 
   deletedAt?: string;
 }

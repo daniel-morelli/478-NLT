@@ -103,50 +103,14 @@ export const AdminDealSources: React.FC = () => {
       <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-left">
             <thead className="bg-black text-white">
-                <tr>
-                    <th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Canale / Origine</th>
-                    <th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Stato</th>
-                    <th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-right">Azioni</th>
-                </tr>
+                <tr><th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Canale / Origine</th><th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400">Stato</th><th className="px-8 py-4 font-black uppercase text-[10px] tracking-[0.2em] text-gray-400 text-right">Azioni</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
                 {sources.map(s => (
-                    <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-8 py-4">
-                            <div className="flex items-center gap-3 font-black text-gray-900 uppercase tracking-tighter text-sm">
-                                <Info size={16} className="text-gray-300"/>
-                                {s.name}
-                            </div>
-                        </td>
-                        <td className="px-8 py-4">
-                            {s.isActive ? 
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-700 text-[9px] font-black uppercase tracking-widest border border-green-100">
-                                    <CheckCircle size={12}/> Attivo
-                                </span> : 
-                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-gray-400 text-[9px] font-black uppercase tracking-widest border border-gray-200">
-                                    <XCircle size={12}/> Disabilitato
-                                </span>
-                            }
-                        </td>
-                        <td className="px-8 py-4 text-right">
-                            <div className="flex items-center justify-end gap-3">
-                                <button onClick={() => handleEdit(s)} className="text-gray-400 hover:text-black font-black text-[10px] uppercase tracking-widest transition-colors">
-                                    Modifica
-                                </button>
-                                <button 
-                                    onClick={() => toggleActive(s)} 
-                                    className={`${s.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'} font-black text-[10px] uppercase tracking-widest transition-colors`}
-                                >
-                                    {s.isActive ? 'Disabilita' : 'Riattiva'}
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                    <tr key={s.id} className="hover:bg-gray-50 transition-colors"><td className="px-8 py-4"><div className="flex items-center gap-3 font-black text-gray-900 uppercase tracking-tighter text-sm"><Info size={16} className="text-gray-300"/>{s.name}</div></td><td className="px-8 py-4">{s.isActive ? <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-50 text-green-700 text-[9px] font-black uppercase tracking-widest border border-green-100"><CheckCircle size={12}/> Attivo</span> : <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-gray-50 text-gray-400 text-[9px] font-black uppercase tracking-widest border border-gray-200"><XCircle size={12}/> Disabilitato</span>}</td><td className="px-8 py-4 text-right"><div className="flex items-center justify-end gap-3"><button onClick={() => handleEdit(s)} className="text-gray-400 hover:text-black font-black text-[10px] uppercase tracking-widest transition-colors">Modifica</button><button onClick={() => toggleActive(s)} className={`${s.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'} font-black text-[10px] uppercase tracking-widest transition-colors`}>{s.isActive ? 'Disabilita' : 'Riattiva'}</button></div></td></tr>
                 ))}
                 {sources.length === 0 && (
-                    <tr>
-                        <td colSpan={3} className="px-8 py-12 text-center text-gray-300 font-black uppercase tracking-widest text-xs">Nessuna origine configurata.</td>
-                    </tr>
+                    <tr><td colSpan={3} className="px-8 py-12 text-center text-gray-300 font-black uppercase tracking-widest text-xs">Nessuna origine configurata.</td></tr>
                 )}
             </tbody>
         </table>

@@ -16,6 +16,7 @@ import { Profile } from './pages/Profile';
 import { CalendarPage } from './pages/CalendarPage';
 import { BackupView } from './components/BackupView';
 import { BackupService } from './services/backupService';
+import { DbService } from './services/dbService';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -30,6 +31,15 @@ const AppRoutes = () => {
     useEffect(() => {
         if (user?.isAdmin) {
             BackupService.runAutoBackup();
+            
+            // Backfill numeri pratica (una sola volta)
+            const backfillDone = localStorage.getItem('nlt_backfill_v1_done');
+            if (!backfillDone) {
+                DbService.backfillPracticeNumbers().then(() => {
+                    localStorage.setItem('nlt_backfill_v1_done', 'true');
+                    console.log("Backfill numeri pratica completato");
+                });
+            }
         }
     }, [user]);
     

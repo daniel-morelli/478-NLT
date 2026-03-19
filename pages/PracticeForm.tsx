@@ -398,7 +398,14 @@ export const PracticeForm: React.FC = () => {
 
             <div className="bg-black text-white p-6 md:p-8 flex flex-col md:flex-row justify-between md:items-center gap-4 border-b border-gray-900">
                 <div>
-                    <h2 className="text-2xl font-black tracking-tight uppercase">{formData.customerData?.nome || 'Nuova Pratica'}</h2>
+                    <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-2xl font-black tracking-tight uppercase">{formData.customerData?.nome || 'Nuova Pratica'}</h2>
+                        {formData.practiceNumber && (
+                            <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest">
+                                {formData.practiceYear}/{formData.practiceNumber}
+                            </span>
+                        )}
+                    </div>
                     <div className="flex items-center gap-3 mt-1"><span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{formData.provider || 'Provider N/D'}</span><span className="text-red-600 text-[10px] font-black">•</span><span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{id ? `ID: ${id.substring(0,8)}` : 'Bozza'}</span></div>
                 </div>
                 {isPowerUser ? (
