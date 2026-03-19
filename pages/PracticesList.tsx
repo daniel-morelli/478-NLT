@@ -64,6 +64,21 @@ export const PracticesList: React.FC = () => {
 
   const isPowerUser = user?.isAdmin || user?.isTeamLeader;
 
+  const summaryStats = useMemo(() => {
+    return filtered.reduce((acc, p) => {
+      const vAffidamento = p.veicoliAffidamento?.length || 0;
+      const vOrdine = p.veicoliOrdine?.length || 0;
+      const commOrdine = p.veicoliOrdine?.reduce((vAcc, v) => vAcc + (v.provvigione || 0), 0) || 0;
+      
+      return {
+        count: acc.count + 1,
+        vehiclesAffidamento: acc.vehiclesAffidamento + vAffidamento,
+        vehiclesOrdine: acc.vehiclesOrdine + vOrdine,
+        totalCommissions: acc.totalCommissions + commOrdine
+      };
+    }, { count: 0, vehiclesAffidamento: 0, vehiclesOrdine: 0, totalCommissions: 0 });
+  }, [filtered]);
+
   // 1. CARICAMENTO FILTRI DA SESSION STORAGE ALL'AVVIO
   useEffect(() => {
     const saved = sessionStorage.getItem('nlt_filters_v2');
@@ -774,6 +789,39 @@ export const PracticesList: React.FC = () => {
             </div>
             <p className="text-xs font-black text-gray-400 uppercase tracking-[0.3em]">Nessuna corrispondenza trovata</p>
             <button onClick={resetFilters} className="mt-4 text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline">Ripristina tutti i filtri</button>
+        </div>
+      )}
+
+      {/* Summary Banner */}
+      {filtered.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.4)]">
+          <div className="max-w-[1600px] mx-auto px-6 py-3 flex flex-wrap items-center justify-end gap-x-8 gap-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Pratiche:</span>
+              <span className="text-sm font-black text-white tabular-nums">{summaryStats.count}</span>
+            </div>
+            
+            <div className="hidden md:block w-px h-4 bg-white/10"></div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Veicoli Affidamento:</span>
+              <span className="text-sm font-black text-white tabular-nums">{summaryStats.vehiclesAffidamento}</span>
+            </div>
+            
+            <div className="hidden md:block w-px h-4 bg-white/10"></div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Veicoli Ordine:</span>
+              <span className="text-sm font-black text-white tabular-nums">{summaryStats.vehiclesOrdine}</span>
+            </div>
+            
+            <div className="hidden md:block w-px h-4 bg-white/10"></div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Totale Provvigioni:</span>
+              <span className="text-sm font-black text-red-500 tabular-nums">{formatIT(summaryStats.totalCommissions)}</span>
+            </div>
+          </div>
         </div>
       )}
     </div>
