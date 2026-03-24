@@ -431,6 +431,7 @@ export const PracticesList: React.FC = () => {
           <div className="flex gap-2 w-full md:w-auto">
             <Link 
               to="/practices/new" 
+              state={{ from: '/practices' }}
               className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-black text-white px-8 py-4 hover:bg-gray-800 shadow-xl shadow-black/10 transition-all transform active:scale-95 font-black uppercase text-xs tracking-widest rounded-2xl"
             >
               <Plus size={18} />
@@ -715,26 +716,26 @@ export const PracticesList: React.FC = () => {
               {filtered.map((practice) => (
                 <tr key={practice.id} className="hover:bg-red-50/20 transition-all cursor-pointer group">
                   {[
-                    <td key="n" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="n" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <div className="text-[10px] font-black text-gray-900 bg-gray-100 px-2 py-1 rounded-lg uppercase tracking-widest inline-block">
                         {practice.practiceNumber ? `${practice.practiceYear}/${practice.practiceNumber}` : (
                           <span className="text-gray-300 italic">N/D</span>
                         )}
                       </div>
                     </td>,
-                    <td key="t" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="t" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <div className="flex justify-center">
                         <TypeIcon type={practice.tipoTrattativa} />
                       </div>
                     </td>,
                     isPowerUser ? (
-                      <td key="a" className="px-6 py-5" onClick={() => navigate(`/practices/${practice.id}`)}>
+                      <td key="a" className="px-6 py-5" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                         <div className="text-[10px] font-black text-red-700 bg-red-50 px-2.5 py-1 rounded-lg uppercase tracking-wider inline-block max-w-full truncate">
                           {practice.agentName}
                         </div>
                       </td>
                     ) : null,
-                    <td key="c" className="px-6 py-5 overflow-hidden" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="c" className="px-6 py-5 overflow-hidden" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <div className="font-black text-gray-900 group-hover:text-red-600 transition-colors uppercase tracking-tight text-sm truncate">
                         {practice.customerData?.nome}
                       </div>
@@ -742,16 +743,16 @@ export const PracticesList: React.FC = () => {
                         {new Date(practice.data).toLocaleDateString()} • {practice.provider}
                       </div>
                     </td>,
-                    <td key="v" className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="v" className="px-6 py-5 text-right font-black text-gray-900 text-sm tabular-nums whitespace-nowrap" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       {formatIT(getProvAttesaValue(practice))}
                     </td>,
-                    <td key="st" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="st" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <StatusBadge status={practice.statoTrattativa} />
                     </td>,
-                    <td key="sa" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="sa" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <StatusBadge status={practice.statoAffidamento} />
                     </td>,
-                    <td key="so" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`)}>
+                    <td key="so" className="px-6 py-5 text-center" onClick={() => navigate(`/practices/${practice.id}`, { state: { from: '/practices' } })}>
                       <StatusBadge status={practice.statoOrdine} />
                     </td>,
                     <td key="g" className="px-6 py-5">

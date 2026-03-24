@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { DbService } from '../services/dbService';
 import { Practice, DealStatus, CreditStatus, OrderStatus, Provider, Agent, Reminder, Customer, VehicleCredit, VehicleOrder, PracticeType, DealSource } from '../types';
@@ -39,8 +39,10 @@ type TabType = 'storia' | 'trattativa' | 'affidamento' | 'ordine' | 'promemoria'
 export const PracticeForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   
+  const from = location.state?.from || '/practices';
   const [activeTab, setActiveTab] = useState<TabType>(id ? 'storia' : 'trattativa');
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -251,7 +253,7 @@ export const PracticeForm: React.FC = () => {
     setLoading(true);
     try {
       await DbService.savePractice({ ...formData, agentId: formData.agentId });
-      navigate(-1);
+      navigate(from);
     } catch (error: any) {
       setErrorMessage(`Errore: ${error.message}`);
     } finally {
@@ -387,7 +389,7 @@ export const PracticeForm: React.FC = () => {
         )}
 
         <div className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
-            <button onClick={() => navigate('/practices')} className="flex items-center text-gray-400 hover:text-red-600 transition-colors font-black text-[10px] uppercase tracking-widest">
+            <button onClick={() => navigate(from)} className="flex items-center text-gray-400 hover:text-red-600 transition-colors font-black text-[10px] uppercase tracking-widest">
                 <ArrowLeft className="w-4 h-4 mr-2" /> Torna all'elenco
             </button>
             {formData.isLocked && <div className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-red-600/20"><Lock size={14}/> Pratica Bloccata</div>}
@@ -462,7 +464,22 @@ export const PracticeForm: React.FC = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 <div className="lg:col-span-2 relative">
-                                    <label className={LabelStyle}>Ricerca Anagrafica Cliente</label>
+                                    <div className="flex items-center justify-between mb-1.5 ml-1">
+                                      <label className={LabelStyle + " mb-0"}>Ricerca Anagrafica Cliente</label>
+                                      {formData.agentId && !isPracticeLocked && (
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            setIsAddingNewCustomer(true);
+                                            setCustomerSearch('');
+                                            setShowCustomerResults(false);
+                                          }}
+                                          className="text-[9px] font-black text-red-600 uppercase tracking-widest flex items-center gap-1 hover:underline"
+                                        >
+                                          <Plus size={10} /> Nuovo Cliente
+                                        </button>
+                                      )}
+                                    </div>
                                     <div className="relative group">
                                       <Search size={16} className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${!formData.agentId ? 'text-red-600' : 'text-gray-400'}`} />
                                       <input 
@@ -477,20 +494,34 @@ export const PracticeForm: React.FC = () => {
                                       {showCustomerResults && formData.agentId && customerSearch.length > 0 && !isPracticeLocked && (
                                             <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-gray-200 shadow-2xl z-[100] rounded-2xl max-h-60 overflow-y-auto">
                                               {filteredCustomers.length > 0 ? (
-                                                filteredCustomers.map(c => (
-                                                  <div key={c.id} onClick={() => handleSelectCustomer(c)} className="p-4 hover:bg-red-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between group">
-                                                    <div className="flex flex-col">
-                                                      <span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span>
-                                                      <span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span>
+                                                <>
+                                                  {filteredCustomers.map(c => (
+                                                    <div key={c.id} onClick={() => handleSelectCustomer(c)} className="p-4 hover:bg-red-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center justify-between group">
+                                                      <div className="flex flex-col">
+                                                        <span className="font-black text-gray-900 text-sm group-hover:text-red-600 transition-colors uppercase">{c.nome}</span>
+                                                        <span className="text-[10px] text-gray-400 font-bold">{c.email} • {c.cell}</span>
+                                                      </div>
+                                                      <div className="flex items-center gap-2">
+                                                        {c.cell && (
+                                                          <a href={`tel:${c.cell}`} onClick={(e) => e.stopPropagation()} className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"><PhoneCall size={14} /></a>
+                                                        )}
+                                                        <Briefcase size={14} className="text-gray-200" />
+                                                      </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                      {c.cell && (
-                                                        <a href={`tel:${c.cell}`} onClick={(e) => e.stopPropagation()} className="text-red-600 p-2 hover:bg-red-100 rounded-lg transition-colors"><PhoneCall size={14} /></a>
-                                                      )}
-                                                      <Briefcase size={14} className="text-gray-200" />
-                                                    </div>
+                                                  ))}
+                                                  <div 
+                                                    onClick={() => {
+                                                      setIsAddingNewCustomer(true); 
+                                                      setNewCustomer({...newCustomer, nome: customerSearch}); 
+                                                      setShowCustomerResults(false);
+                                                    }} 
+                                                    className="p-4 text-center cursor-pointer hover:bg-gray-50 border-t border-gray-100 bg-gray-50/50"
+                                                  >
+                                                    <span className="text-[10px] font-black text-red-600 uppercase tracking-widest flex items-center justify-center gap-2">
+                                                      <UserPlus size={14} /> Crea comunque nuovo cliente "{customerSearch}"
+                                                    </span>
                                                   </div>
-                                                ))
+                                                </>
                                               ) : (
                                                 <div onClick={() => {setIsAddingNewCustomer(true); setNewCustomer({...newCustomer, nome: customerSearch}); setShowCustomerResults(false);}} className="p-6 text-center cursor-pointer hover:bg-gray-50">
                                                   <UserPlus size={24} className="mx-auto text-red-600 mb-2" />
@@ -569,7 +600,7 @@ export const PracticeForm: React.FC = () => {
                 {activeTab === 'promemoria' && <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">{id ? <PracticeReminders practiceId={id} /> : <div className="py-20 text-center text-gray-300 font-black uppercase tracking-widest">Salva per i promemoria</div>}</div>}
 
                 <div className="mt-16 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-end gap-4 max-w-5xl mx-auto">
-                    <button type="button" onClick={() => navigate(-1)} className="px-8 py-4 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Annulla</button>
+                    <button type="button" onClick={() => navigate(from)} className="px-8 py-4 text-gray-500 font-black uppercase text-[10px] tracking-widest rounded-2xl">Annulla</button>
                     {!isPracticeLocked && (<button type="submit" disabled={loading} className="px-12 py-4 bg-red-600 text-white font-black uppercase text-[10px] tracking-widest hover:bg-red-700 shadow-xl shadow-red-600/20 flex items-center justify-center gap-2 rounded-2xl transition-all transform active:scale-95"><Save size={18} /> {loading ? 'SINCRONIZZAZIONE...' : 'Salva Pratica'}</button>)}
                 </div>
             </form>
