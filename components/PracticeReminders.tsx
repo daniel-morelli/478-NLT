@@ -48,7 +48,7 @@ export const PracticeReminders: React.FC<Props> = ({ practiceId }) => {
     try {
         await DbService.saveReminder({
             practiceId,
-            expirationDate: `${newReminder.date}T${newReminder.time}`,
+            expirationDate: new Date(`${newReminder.date}T${newReminder.time}`).toISOString(),
             description: newReminder.description,
             status: 'aperto'
         });
@@ -65,8 +65,17 @@ export const PracticeReminders: React.FC<Props> = ({ practiceId }) => {
   const handleEditClick = (rem: Reminder) => {
     setError(null);
     const dt = new Date(rem.expirationDate);
-    const dateStr = dt.toISOString().split('T')[0];
-    const timeStr = dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    
+    // Get local date string YYYY-MM-DD
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const d = String(dt.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+    
+    // Get local time string HH:mm
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mm = String(dt.getMinutes()).padStart(2, '0');
+    const timeStr = `${hh}:${mm}`;
 
     setEditData({ date: dateStr, time: timeStr, description: rem.description });
     setEditingId(rem.id);
@@ -81,7 +90,7 @@ export const PracticeReminders: React.FC<Props> = ({ practiceId }) => {
         await DbService.saveReminder({
             id: editingId,
             practiceId,
-            expirationDate: `${editData.date}T${editData.time}`,
+            expirationDate: new Date(`${editData.date}T${editData.time}`).toISOString(),
             description: editData.description,
         });
         setEditingId(null);
